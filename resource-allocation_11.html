@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resource Allocation — PM Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f17;--surf:#13161f;--surf2:#191d2a;--surf3:#1e2233;
+  --bdr:#252a3a;--bdr2:#1c2030;
+  --teal:#00d4aa;--teal-a10:rgba(0,212,170,.10);--teal-a20:rgba(0,212,170,.20);
+  --red:#e05252;--amber:#f5a623;--blue:#4a9eff;--purple:#9b6bff;--green:#4caf7d;
+  --txt:#dde1eb;--txt2:#7a8496;--txt3:#454e61;
+  --wknd-bg:#2b303d;--wknd-bdr:#3a4152;
+  --r:8px;--rl:13px;--sbk:#1c2130;--sbt:#5a6479;--cs:dark;
+}
+[data-theme=light]{--bg:#f1f3f8;--surf:#ffffff;--surf2:#eceff5;--surf3:#e1e6ef;--bdr:#cfd6e3;--bdr2:#e1e6ef;
+  --teal:#00907a;--teal-a10:rgba(0,144,122,.10);--teal-a20:rgba(0,144,122,.22);
+  --txt:#1b2230;--txt2:#4d586d;--txt3:#7d879b;--wknd-bg:#d6dce8;--wknd-bdr:#bcc5d6;--sbk:#e1e6ef;--sbt:#8d99b0;--cs:light}
+[data-theme=light] .sp{color:#1b2230}
+[data-theme=light] .chip.lv,[data-theme=light] .wk-chip.lv{color:#a8266f!important}
+[data-theme=light] .chip.av,[data-theme=light] .wk-chip.av{color:#1f7a4d!important}
+[data-theme=light] .g-cell.wkwork.wk{background:#e9dfc2!important}
+[data-theme=light] input[type=date]::-webkit-calendar-picker-indicator{filter:none}
+[data-theme=light] .lv-badge{color:#fff}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;font-size:13px}
+
+/* ── SCROLLBARS ── */
+input[type=date]{color-scheme:var(--cs);cursor:pointer}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.9);opacity:1;cursor:pointer}
+::-webkit-scrollbar{width:14px;height:14px}
+::-webkit-scrollbar-track{background:var(--sbk)}
+::-webkit-scrollbar-thumb{background:var(--sbt);border-radius:7px;border:3px solid var(--sbk)}
+::-webkit-scrollbar-thumb:hover{background:#8a96ad}
+::-webkit-scrollbar-corner{background:var(--sbk)}
+*{scrollbar-color:var(--sbt) var(--sbk)}
+.gw,.panel,.main{min-height:0}
+.ld{position:absolute;left:0;bottom:0;height:3px;pointer-events:none}
+.whr{display:flex;align-items:center;gap:4px;margin-bottom:4px}
+.whn{width:110px;flex:none;font-size:11px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wh{width:52px;flex:none;height:24px;border-radius:4px;font-size:10px;font-weight:700;color:#0d0f17;display:flex;align-items:center;justify-content:center}
+.wht{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:8px 0 4px}::-webkit-scrollbar-corner{background:var(--surf2)}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:var(--r);border:none;font:500 12px 'Inter',sans-serif;cursor:pointer;transition:all .14s;white-space:nowrap}
+.btn-p{background:var(--teal);color:#0d0f17}.btn-p:hover{background:#00e8bc}
+.btn-g{background:transparent;color:var(--txt2);border:1px solid var(--bdr)}.btn-g:hover{border-color:var(--teal);color:var(--teal)}
+.btn-d{background:rgba(224,82,82,.12);color:var(--red);border:1px solid rgba(224,82,82,.25)}.btn-d:hover{background:rgba(224,82,82,.22)}
+.btn-s{padding:4px 9px;font-size:11px}
+.btn-xs{padding:2px 7px;font-size:10px}
+.iBtn{background:none;border:none;cursor:pointer;color:var(--txt3);padding:3px 4px;border-radius:4px;display:inline-flex;line-height:1}.iBtn:hover{color:var(--txt);background:var(--bdr)}
+
+/* ── LAYOUT ── */
+.hdr{display:flex;align-items:center;gap:12px;padding:10px 18px;background:var(--surf);border-bottom:1px solid var(--bdr);position:sticky;top:0;z-index:300;flex-wrap:wrap}
+.hdr-brand{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.hdr-mark{width:28px;height:28px;background:var(--teal);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hdr-mark svg{width:15px;height:15px;fill:#0d0f17}
+.hdr h1{font-size:14px;font-weight:600}
+.hdr-sub{font-size:10px;color:var(--txt3)}
+.hdr-act{display:flex;gap:7px;margin-left:auto;flex-wrap:wrap}
+
+body{display:flex;flex-direction:column;height:100vh}
+.wrap{display:flex;flex:1;min-height:0}
+.sb{width:250px;min-width:250px;background:var(--surf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden}
+.sb-body{flex:1;overflow-y:auto}
+.sb-sec{padding:12px 12px 8px}
+.sb-ttl{font-size:10px;font-weight:700;letter-spacing:.09em;color:var(--txt3);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── SIDEBAR ITEMS ── */
+.t-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;cursor:pointer;margin-bottom:1px;transition:background .1s}
+.t-item:hover{background:var(--teal-a10)}
+.t-item-l{display:flex;align-items:center;gap:7px}
+.t-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.t-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s}.t-item:hover .t-acts{opacity:1}
+.r-item{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-radius:6px;margin-bottom:1px;transition:background .1s}
+.r-item:hover{background:var(--surf2)}
+.r-l{display:flex;align-items:center;gap:7px}
+.av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#0d0f17;flex-shrink:0}
+.r-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s}.r-item:hover .r-acts{opacity:1}
+
+/* ── TABS ── */
+.tabs{display:flex;background:var(--surf);border-bottom:1px solid var(--bdr);padding:0 14px;flex-shrink:0}
+.tab{padding:11px 13px;font-size:12px;font-weight:500;color:var(--txt2);cursor:pointer;border-bottom:2px solid transparent;transition:all .13s}
+.tab:hover{color:var(--txt)}
+.tab.act{color:var(--teal);border-bottom-color:var(--teal)}
+.panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.panel.act{display:flex}
+
+/* ── TOOLBAR ── */
+.toolbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surf);border-bottom:1px solid var(--bdr);flex-shrink:0;flex-wrap:wrap}
+.tlbl{font-size:10px;color:var(--txt2);white-space:nowrap}
+.tsep{width:1px;height:20px;background:var(--bdr);flex-shrink:0}
+select,input[type=date],input[type=text],input[type=time]{background:var(--surf2);border:1px solid var(--bdr);color:var(--txt);padding:5px 8px;border-radius:6px;font:12px 'Inter',sans-serif;outline:none;transition:border-color .13s}
+select:focus,input:focus{border-color:var(--teal)}
+select option{background:var(--surf2)}
+.zt{display:flex;border:1px solid var(--bdr);border-radius:6px;overflow:hidden}
+.ztb{padding:4px 11px;background:none;border:none;color:var(--txt2);cursor:pointer;font:11px 'Inter',sans-serif;transition:all .12s}
+.ztb.act{background:var(--teal-a10);color:var(--teal)}
+
+/* ── SEL BAR ── */
+.sel-bar{display:none;align-items:center;gap:10px;padding:7px 14px;background:var(--teal-a10);border-bottom:1px solid var(--teal-a20);font-size:12px;flex-shrink:0}
+.sel-bar.on{display:flex}
+.sel-c{color:var(--teal);font-weight:600}
+
+/* ── GANTT WRAP ── */
+.gw{flex:1;min-width:0;overflow:auto;position:relative;scrollbar-width:none}
+.gw::-webkit-scrollbar{display:none}
+.gc{min-width:max-content;position:relative}
+
+/* ── GANTT HEADER ── */
+.gh{position:sticky;top:0;z-index:20;background:var(--surf)}
+.gh-m{display:flex;border-bottom:1px solid var(--bdr)}
+.gh-rc{width:175px;min-width:175px;flex-shrink:0;border-right:1px solid var(--bdr);padding:7px 10px;font-size:10px;font-weight:700;letter-spacing:.07em;color:var(--txt3);text-transform:uppercase}
+.gh-months{display:flex}
+.gh-mo{display:flex;align-items:center;justify-content:center;border-right:1px solid var(--bdr);font-size:10px;font-weight:600;color:var(--txt2);letter-spacing:.04em;padding:7px 0}
+.gh-dates{display:flex;border-bottom:2px solid var(--bdr)}
+.gh-d{flex-shrink:0;text-align:center;padding:4px 0 3px;border-right:1px solid var(--bdr);cursor:default;transition:background .1s}
+.gh-d.wk{background:var(--wknd-bg);border-right-color:var(--wknd-bdr)}
+.gh-d.td{background:rgba(0,212,170,.24)}
+.gh-d-n{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--txt2)}
+.gh-d-l{font-size:8px;color:var(--txt3)}
+.gh-d.wk .gh-d-l{color:#e05252;opacity:.7}
+.gh-d.td .gh-d-n{color:var(--teal);font-weight:700}
+
+/* ── GANTT BODY ── */
+.g-thdr{display:flex;align-items:center;gap:7px;padding:6px 10px;background:var(--surf2);border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;position:sticky;left:0;z-index:10;white-space:nowrap}
+.g-row{display:flex;border-bottom:1px solid var(--bdr);min-height:44px}
+.g-row:hover{background:rgba(255,255,255,.009)}
+.g-lbl{width:175px;min-width:175px;flex-shrink:0;padding:0 10px;display:flex;align-items:center;gap:7px;border-right:1px solid var(--bdr);position:sticky;left:0;background:var(--bg);z-index:8}
+.g-row:hover .g-lbl{background:var(--surf2)}
+.g-cells{display:flex}
+.g-cell{flex-shrink:0;min-height:44px;border-right:1px solid var(--bdr);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:2px 1px;cursor:pointer;transition:background .1s;position:relative;user-select:none}
+.g-cell:hover{background:var(--teal-a10)!important}
+.g-cell.wk{background:var(--wknd-bg);border-right-color:var(--wknd-bdr)}
+.g-cell.td{background:rgba(0,212,170,.13)!important;box-shadow:inset 1px 0 rgba(0,212,170,.35),inset -1px 0 rgba(0,212,170,.35)}
+.g-cell.sel{background:rgba(0,212,170,.16)!important;outline:1px inset rgba(0,212,170,.5)}
+.g-cell.wkwork{background:rgba(245,166,35,.07)!important}
+.g-cell.wkwork.wk{background:#3a3628!important}
+
+/* ── CHIPS ── */
+.chip{border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;letter-spacing:.02em;padding:1px 3px;pointer-events:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;position:relative}
+.g-cell{position:relative}
+.chip.av,.wk-chip.av{background:rgba(76,175,125,.14)!important;border:1px solid #4caf7d!important;color:#4caf7d!important}
+.chip.av::before,.wk-chip.av::before{content:'';width:6px;height:6px;border-radius:50%;background:#4caf7d;margin-right:3px;flex:none;display:inline-block}
+.chip.lv,.wk-chip.lv{background:rgba(255,92,180,.16)!important;border:1px dashed #ff5cb4!important;color:#ffb3dc!important;font-size:9px!important}
+.lv-badge{position:absolute;top:1px;left:2px;font-size:7px;font-weight:700;background:#ff5cb4;color:#0d0f17;padding:0 2px;border-radius:2px;pointer-events:none}
+.gh-sp{display:flex;border-bottom:1px solid var(--bdr)}
+.gh-sps{display:flex}
+.sp{display:flex;align-items:center;justify-content:center;gap:6px;overflow:hidden;white-space:nowrap;font-size:10px;font-weight:700;padding:5px 0;border-right:2px solid var(--bg,#0d0f17);color:#cfd6e4}
+.sp small{font-weight:400;font-size:9px;opacity:.75}
+.sp.a{background:rgba(74,158,255,.28)}.sp.b{background:rgba(155,107,255,.28)}
+.sp.cur{box-shadow:inset 0 -3px var(--teal)}
+.wc{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
+.wc-col{display:flex;flex-direction:column;align-items:center;width:44px;flex:none}
+.wc-bar{width:100%;display:flex;flex-direction:column;background:var(--surf2);border-radius:4px;overflow:hidden}
+.wc-seg{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#0d0f17;min-height:0;overflow:hidden}
+.wc-x{font-size:9px;color:var(--txt3);margin-top:4px}
+.chip.done{opacity:.4}
+.chip.done::after{content:'✓';position:absolute;right:1px;top:0;font-size:7px}
+.more-tag{font-size:7px;color:var(--txt3);pointer-events:none}
+
+/* ── WEEK CHIP ── */
+.wk-chip{border-radius:3px;font-size:8px;font-weight:700;padding:1px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+
+/* ── MODALS ── */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+.ov.on{display:flex}
+.md{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rl);padding:22px;width:520px;max-width:96vw;max-height:92vh;overflow-y:auto;box-shadow:0 28px 70px rgba(0,0,0,.6)}
+.md-sm{width:370px}
+.md-lg{width:660px}
+.md-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:10px}
+.md-ttl{font-size:14px;font-weight:600}
+.md-sub{font-size:11px;color:var(--txt2);margin-top:2px}
+.md-x{background:none;border:none;color:var(--txt2);cursor:pointer;font-size:20px;line-height:1;padding:0 2px}.md-x:hover{color:var(--txt)}
+.fg{margin-bottom:12px}
+.fg:last-child{margin-bottom:0}
+.flbl{font-size:10px;font-weight:600;color:var(--txt2);margin-bottom:4px;display:block;text-transform:uppercase;letter-spacing:.05em}
+.fi{width:100%;background:var(--surf2);border:1px solid var(--bdr);color:var(--txt);padding:7px 9px;border-radius:6px;font:13px 'Inter',sans-serif;outline:none}
+.fi:focus{border-color:var(--teal)}
+.frow{display:flex;gap:10px}
+.frow .fg{flex:1;min-width:0}
+.m-act{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--bdr)}
+.sep{height:1px;background:var(--bdr);margin:12px 0}
+.note{padding:8px 11px;border-radius:6px;font-size:11px;margin-bottom:10px}
+.note-i{background:var(--teal-a10);border:1px solid var(--teal-a20);color:var(--teal)}
+.note-w{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.25);color:var(--amber)}
+
+/* ── TASK TYPE GRID ── */
+.tgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:5px;max-height:200px;overflow-y:auto;padding:2px}
+.topt{padding:6px 4px;border-radius:6px;border:1px solid var(--bdr);cursor:pointer;text-align:center;font-size:9px;font-weight:700;letter-spacing:.02em;transition:all .12s;line-height:1.3}
+.topt:hover{border-color:rgba(255,255,255,.3)}
+.topt.sel{outline:2px solid var(--teal);border-color:var(--teal)}
+
+/* ── DAY TASKS LIST ── */
+.dt-list{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;max-height:220px;overflow-y:auto}
+.dt-row{display:flex;align-items:center;gap:7px;padding:7px 9px;background:var(--surf2);border-radius:6px;border:1px solid var(--bdr)}
+.dt-row.dn{opacity:.5}
+.dt-chk{width:14px;height:14px;accent-color:var(--teal);cursor:pointer;flex-shrink:0}
+.dt-chip{width:30px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0}
+.dt-x{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:15px;line-height:1;flex-shrink:0;padding:0 2px}.dt-x:hover{color:var(--red)}
+
+/* ── TASK LIST MANAGER ── */
+.tl-row{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--bdr);border-radius:6px;margin-bottom:5px}
+.tl-preview{width:28px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0}
+
+/* ── COLOR PICKER ── */
+.sw-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+.sw{width:20px;height:20px;border-radius:5px;cursor:pointer;border:2px solid transparent;transition:all .12s;flex-shrink:0}
+.sw.sel{border-color:#fff;transform:scale(1.18)}
+.cp-row{display:flex;align-items:center;gap:7px}
+input[type=color]{width:32px;height:26px;padding:1px;cursor:pointer;border-radius:4px;border:1px solid var(--bdr);background:var(--surf2)}
+.hex-in{width:80px;font:11px 'JetBrains Mono',monospace!important}
+
+/* ── STATS ── */
+.sg{padding:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;align-content:start}
+.sc{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rl);padding:16px}
+.sc-l{font-size:9px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.sc-v{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.sc-s{font-size:10px;color:var(--txt2);margin-top:2px}
+.bar-t{height:4px;background:var(--surf2);border-radius:2px;overflow:hidden;display:flex;margin-top:10px}
+.bar-s{height:100%;transition:width .3s}
+.leg{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.leg-i{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--txt2)}
+.leg-d{width:6px;height:6px;border-radius:2px}
+.wlg{display:grid;grid-template-columns:130px 1fr}
+.wl-n{padding:3px 0;font-size:11px;color:var(--txt2);display:flex;align-items:center}
+.wl-ws{display:flex;gap:3px;padding:3px 0}
+.wl-w{width:26px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-family:'JetBrains Mono',monospace}
+
+/* ── LEAVE ── */
+.ltbl{width:100%;border-collapse:collapse}
+.ltbl th{text-align:left;padding:8px 11px;font-size:9px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bdr)}
+.ltbl td{padding:8px 11px;border-bottom:1px solid var(--bdr);font-size:12px}
+.ltbl tr:hover td{background:rgba(255,255,255,.02)}
+.lbg{padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700}
+.lb-a{background:rgba(122,132,150,.2);color:var(--txt2)}
+.lb-p{background:rgba(245,166,35,.15);color:var(--amber)}
+.lb-s{background:rgba(224,82,82,.15);color:var(--red)}
+.lb-o{background:rgba(74,158,255,.15);color:var(--blue)}
+
+/* ── TOOLTIP ── */
+.tip{position:fixed;background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;padding:9px 12px;font-size:11px;pointer-events:none;z-index:9999;opacity:0;transition:opacity .13s;min-width:150px;max-width:240px;box-shadow:0 8px 28px rgba(0,0,0,.5)}
+.tip.on{opacity:1}
+.tip-n{font-weight:600;margin-bottom:3px}
+.tip-t{font-size:10px;line-height:1.5}
+.tip-d{font-size:10px;color:var(--txt2);margin-top:2px}
+
+/* ── WEEKEND WORK BADGE ── */
+.wkw-badge{position:absolute;bottom:1px;right:1px;font-size:6px;padding:0px 3px;background:rgba(245,166,35,.3);color:var(--amber);border-radius:2px;font-weight:700;pointer-events:none}
+
+/* ── SYNC STATUS ── */
+.sync-bar{display:flex;align-items:center;gap:8px;padding:5px 18px;background:var(--surf2);border-bottom:1px solid var(--bdr);font-size:11px;color:var(--txt2);flex-shrink:0}
+.sync-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.sync-dot.live{background:#4caf7d;box-shadow:0 0 5px rgba(76,175,125,.5)}
+.sync-dot.saving{background:var(--amber);animation:pulse .7s infinite}
+.sync-dot.offline{background:var(--red)}
+.sync-dot.loading{background:var(--blue);animation:pulse .7s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.user-tag{display:inline-flex;align-items:center;gap:4px;background:var(--surf3);border:1px solid var(--bdr);border-radius:4px;padding:2px 7px;font-size:10px;color:var(--teal)}
+.online-users{display:flex;gap:4px;flex-wrap:wrap}
+.ou-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#0d0f17;border:1px solid var(--bg);title:attr(data-name)}
+.cell-editor{position:absolute;top:0;right:0;font-size:6px;background:rgba(0,212,170,.8);color:#0d0f17;padding:0 2px;border-radius:0 0 0 3px;pointer-events:none;font-weight:700;z-index:2}
+/* always-visible scrollbars for the timeline */
+.csb{display:flex;flex:none;background:var(--surf3);border:1px solid var(--bdr)}
+.csb.h{height:22px;flex-direction:row;border-width:1px 0 0}
+.csb.v{width:22px;flex-direction:column;border-width:0 0 0 1px}
+.csb .sbb{flex:none;width:22px;height:22px;border:0;background:var(--surf2);color:var(--teal);cursor:pointer;font-size:10px}
+.csb .sbb:hover{background:var(--teal);color:#fff}
+.csb .sbt{flex:1;position:relative;min-width:0;min-height:0}
+.csb .sbh{position:absolute;background:var(--teal);border-radius:6px;cursor:grab;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.csb.h .sbh{top:4px;bottom:4px}.csb.v .sbh{left:4px;right:4px}
+/* light mode polish */
+[data-theme=light]{--bdr:#aab6cb;--bdr2:#c3cbdb}
+[data-theme=light] .gw,[data-theme=light] .g-lbl{background:#fff}
+[data-theme=light] .g-cell:not(.wk):not(.td){background:#fff}
+[data-theme=light] .g-thdr{background:#dde4f0}
+[data-theme=light] .gh-d{background:#f4f6fb}
+[data-theme=light] .chip{box-shadow:0 1px 1px rgba(0,0,0,.15)}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="hdr-brand">
+    <div class="hdr-mark"><svg viewBox="0 0 24 24"><path d="M3 4h18v3H3V4zm0 6.5h12v3H3v-3zM3 17h15v3H3v-3z"/></svg></div>
+    <div><h1>Resource Allocation</h1><div class="hdr-sub" id="hSub">PM Dashboard · Weekend: Fri & Sat</div></div>
+  </div>
+  <div class="hdr-act">
+    <button class="btn btn-g btn-s" onclick="openTaskMgr()">⚙ Manage Tasks</button>
+    <button class="btn btn-g btn-s" onclick="openAddRes()">+ Resource</button>
+    <button class="btn btn-g btn-s" onclick="openAddTeam()">+ Team</button>
+    <button class="btn btn-p btn-s" onclick="doExport()">↓ Export CSV</button>
+      <button class="btn btn-g btn-s" id="themeBtn" onclick="toggleTheme()">☀ Light</button>
+  </div>
+</header>
+
+<!-- SYNC STATUS BAR -->
+<div class="sync-bar" id="syncBar">
+  <div class="sync-dot loading" id="syncDot"></div>
+  <span id="syncMsg">Connecting to Firebase…</span>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+    <span style="color:var(--txt3)">Online:</span>
+    <div class="online-users" id="onlineUsers"></div>
+    <div class="user-tag" id="myUserTag">You: <span id="myUserName">—</span></div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="wrap">
+  <!-- SIDEBAR -->
+  <aside class="sb">
+    <div class="sb-body">
+      <div class="sb-sec">
+        <div class="sb-ttl">Teams <button class="btn btn-g btn-xs" onclick="openAddTeam()">+</button></div>
+        <div id="teamList"></div>
+      </div>
+      <div class="sb-sec">
+        <div class="sb-ttl">Resources <button class="btn btn-g btn-xs" onclick="openAddRes()">+</button></div>
+        <div id="resList"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="tabs">
+      <div class="tab act" id="tb-gantt" onclick="showTab('gantt')">📅 Timeline</div>
+      <div class="tab" id="tb-stats" onclick="showTab('stats')">📊 Overview</div>
+      <div class="tab" id="tb-leave" onclick="showTab('leave')">🗓 Leave</div>
+      <div class="tab" id="tb-avail" onclick="showTab('avail')">🔍 Availability</div>
+    </div>
+
+    <!-- ═══ TIMELINE PANEL ═══ -->
+    <div class="panel act" id="pn-gantt">
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <span class="tlbl">Team</span>
+        <select id="ftTeam" onchange="renderGantt()">
+          <option value="">All</option>
+        </select>
+        <div class="tsep"></div>
+        <span class="tlbl">From</span>
+        <input type="date" id="dFrom" onchange="guardDates('from')">
+        <span class="tlbl">To</span>
+        <input type="date" id="dTo" onchange="guardDates('to')">
+        <div class="tsep"></div>
+        <span class="tlbl">Go to</span>
+        <input type="date" id="dGoto" style="width:120px">
+        <button class="btn btn-g btn-s" onclick="gotoDate()">→ Go</button>
+        <div class="tsep"></div>
+        <button class="btn btn-g btn-s" onclick="openSprints()">Sprints</button>
+        <select id="wkSel" onchange="setWeekend(this.value)" title="Which days are the weekend"><option value="fs">Weekend: Fri &amp; Sat</option><option value="ss">Weekend: Sat &amp; Sun</option></select>
+        <div class="tsep"></div>
+        <span class="tlbl">View</span>
+        <div class="zt">
+          <button class="ztb act" id="ztDay" onclick="setZoom('day',this)">Day</button>
+          <button class="ztb" id="ztWeek" onclick="setZoom('week',this)">Week</button>
+        </div>
+        <button class="btn btn-g btn-s" onclick="jumpToday()">⊙ Today</button>
+        <button class="btn btn-g btn-s" id="clrSelBtn" style="display:none" onclick="clearSel()">✕ Clear sel.</button>
+      </div>
+      <!-- Selection bar -->
+      <div class="sel-bar" id="selBar">
+        <span class="sel-c" id="selCnt">0 cells</span>
+        <span style="color:var(--txt2)">selected —</span>
+        <button class="btn btn-p btn-s" onclick="openBulk()">Assign Task</button>
+        <button class="btn btn-d btn-s" onclick="bulkClear()">Clear All</button>
+        <span style="margin-left:auto;font-size:10px;color:var(--txt3)">Click = open · Ctrl+click = toggle select · Shift+click = range</span>
+      </div>
+      <!-- Gantt -->
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column">
+        <div style="flex:1;min-height:0;display:flex">
+          <div class="gw" id="gw"><div class="gc" id="gc"></div></div>
+          <div class="csb v" id="vsb"></div>
+        </div>
+        <div class="csb h" id="hsb"></div>
+      </div>
+    </div>
+
+    <!-- ═══ OVERVIEW PANEL ═══ -->
+    <div class="panel" id="pn-stats">
+      <div style="overflow:auto;flex:1">
+        <div class="sg" id="statsGrid"></div>
+        <div style="padding:0 18px 18px" id="wcSec"></div>
+      </div>
+    </div>
+
+    <!-- ═══ LEAVE PANEL ═══ -->
+    <div class="panel" id="pn-avail">
+      <div style="padding:18px;overflow:auto;flex:1">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <h2 style="font-size:13px;font-weight:600">Check availability (date range)</h2>
+          <span class="tlbl">From</span><input type="date" id="avFrom" onchange="renderAvail()" style="width:140px">
+          <span class="tlbl">To</span><input type="date" id="avTo" onchange="renderAvail()" style="width:140px">
+          <button class="btn btn-g btn-s" onclick="document.getElementById('avFrom').value='';document.getElementById('avTo').value='';renderAvail()">Today</button>
+          <select id="avTeam" onchange="renderAvail()"></select>
+        </div>
+        <div id="avBody"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="pn-leave">
+      <div style="padding:18px;overflow:auto;flex:1">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <h2 style="font-size:13px;font-weight:600">Leave & Public Holidays</h2>
+          <button class="btn btn-g btn-s" onclick="openLeave()">+ Add Entry</button>
+        </div>
+        <table class="ltbl"><thead><tr>
+          <th>Resource</th><th>Team</th><th>Type</th><th>Start</th><th>End</th><th>Days</th><th></th>
+        </tr></thead><tbody id="leaveBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOOLTIP -->
+<div class="tip" id="tip">
+  <div class="tip-n" id="tipN"></div>
+  <div class="tip-t" id="tipT"></div>
+  <div class="tip-d" id="tipD"></div>
+</div>
+
+<!-- ══ MODAL: ADD/EDIT TEAM ══ -->
+<div class="ov" id="ovTeam">
+  <div class="md md-sm">
+    <div class="md-hdr"><div><div class="md-ttl" id="mTeamTtl">New Team</div></div><button class="md-x" onclick="closeOv('ovTeam')">×</button></div>
+    <div class="fg"><label class="flbl">Team Name</label><input class="fi" id="mTeamName" placeholder="e.g. KE, Backend"></div>
+    <div class="fg">
+      <label class="flbl">Color</label>
+      <div class="sw-row" id="teamSwatches"></div>
+      <div class="cp-row">
+        <span style="font-size:10px;color:var(--txt2)">Custom:</span>
+        <input type="color" id="tcPicker" onchange="tcPickerChange()">
+        <input type="text" class="hex-in fi" id="tcHex" placeholder="#00d4aa" oninput="tcHexChange()">
+      </div>
+    </div>
+    <div class="m-act">
+      <button class="btn btn-g btn-s" onclick="closeOv('ovTeam')">Cancel</button>
+      <button class="btn btn-p btn-s" onclick="saveTeam()">Save Team</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: ADD/EDIT RESOURCE ══ -->
+<div class="ov" id="ovRes">
+  <div class="md md-sm">
+    <div class="md-hdr"><div><div class="md-ttl" id="mResTtl">New Resource</div></div><button class="md-x" onclick="closeOv('ovRes')">×</button></div>
+    <div class="frow">
+      <div class="fg"><label class="flbl">Name</label><input class="fi" id="mResName" placeholder="Full name"></div>
+      <div class="fg"><label class="flbl">Team</label><select class="fi" id="mResTeam"></select></div>
+    </div>
+    <div class="fg"><label class="flbl">Role (optional)</label><input class="fi" id="mResRole" placeholder="QA, Dev, PM…"></div>
+    <div class="m-act">
+      <button class="btn btn-g btn-s" onclick="closeOv('ovRes')">Cancel</button>
+      <button class="btn btn-p btn-s" onclick="saveRes()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: TASK MANAGER ══ -->
+<div class="ov" id="ovTaskMgr">
+  <div class="md md-lg">
+    <div class="md-hdr">
+      <div><div class="md-ttl">Manage Task Types</div><div class="md-sub">Add, rename, recolor or delete task types</div></div>
+      <button class="md-x" onclick="closeOv('ovTaskMgr')">×</button>
+    </div>
+    <div class="note note-i">Changes reflect immediately across all allocations.</div>
+    <!-- Add new -->
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+      <div class="fg" style="margin:0;flex:1;min-width:100px">
+        <label class="flbl">Label</label>
+        <input class="fi" id="ntLabel" placeholder="e.g. Sprint">
+      </div>
+      <div class="fg" style="margin:0;flex:1;min-width:80px">
+        <label class="flbl">Short (≤5)</label>
+        <input class="fi" id="ntAbbr" placeholder="SPR" maxlength="5">
+      </div>
+      <div class="fg" style="margin:0">
+        <label class="flbl">Color</label>
+        <div style="display:flex;gap:5px;align-items:center">
+          <input type="color" id="ntColor" value="#00d4aa">
+          <input type="text" class="fi hex-in" id="ntHex" placeholder="#00d4aa" oninput="ntHexSync()">
+        </div>
+      </div>
+      <button class="btn btn-p btn-s" onclick="addTaskType()" style="margin-bottom:1px;flex-shrink:0">+ Add</button>
+    </div>
+    <div class="sep"></div>
+    <div id="taskMgrList" style="max-height:340px;overflow-y:auto"></div>
+    <div class="m-act"><button class="btn btn-g btn-s" onclick="closeOv('ovTaskMgr')">Done</button></div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CELL/DAY EDITOR ══ -->
+<div class="ov" id="ovCell">
+  <div class="md">
+    <div class="md-hdr">
+      <div><div class="md-ttl" id="mCellTtl">Assign Tasks</div><div class="md-sub" id="mCellSub"></div></div>
+      <button class="md-x" onclick="closeOv('ovCell')">×</button>
+    </div>
+    <!-- Existing tasks -->
+    <div id="dayList" class="dt-list"></div>
+    <!-- Add form -->
+    <div style="background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;padding:11px">
+      <div style="font-size:10px;font-weight:600;color:var(--txt2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Add task to this day</div>
+      <div class="tgrid" id="cellGrid"></div>
+      <div class="frow" style="margin-top:9px">
+        <div class="fg" style="margin:0;flex:2">
+          <label class="flbl">Custom label</label>
+          <input class="fi" id="cLabel" placeholder="Sprint 7, Pay MG 50%…">
+        </div>
+        <div class="fg" style="margin:0">
+          <label class="flbl">Start time</label>
+          <input type="time" class="fi" id="cTStart">
+        </div>
+        <div class="fg" style="margin:0">
+          <label class="flbl">End time</label>
+          <input type="time" class="fi" id="cTEnd">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:9px;align-items:flex-end">
+        <div class="fg" style="margin:0;max-width:90px"><label class="flbl">% of day</label><input type="number" class="fi" id="cPct" min="5" max="100" step="5" value="100"></div>
+        <div class="fg" style="margin:0"><label class="flbl">From date</label><input type="date" class="fi" id="cFrom" onchange="cFromChg()"></div>
+        <div class="fg" style="margin:0"><label class="flbl">To date (blank = one day)</label><input type="date" class="fi" id="cUntil"></div>
+        <label style="font-size:11px;color:var(--txt2);display:flex;align-items:center;gap:5px;padding-bottom:8px"><input type="checkbox" id="cInclWk"> Include Fri/Sat</label>
+        <label style="font-size:11px;color:var(--txt2);display:flex;align-items:center;gap:5px;padding-bottom:8px"><input type="checkbox" id="cSkipLv" checked> Skip leave</label>
+      </div>
+      <div style="margin-top:9px;display:flex;align-items:center;gap:10px">
+        <button class="btn btn-p btn-s" onclick="addToDay()">+ Add to Day(s)</button>
+        <span style="font-size:10px;color:var(--txt3)">No times = full-day task</span>
+      </div>
+    </div>
+    <div class="m-act" style="justify-content:space-between">
+      <button class="btn btn-d btn-s" onclick="clearDay()">Clear All Tasks</button>
+      <button class="btn btn-g btn-s" onclick="closeOv('ovCell')">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovSprint"><div class="md" style="width:640px">
+  <div class="md-hdr"><div><div class="md-ttl">Sprints</div><div class="md-sub">Generate a series, or edit each sprint's name and dates</div></div><button class="md-x" onclick="closeOv('ovSprint')">×</button></div>
+  <div class="frow" style="align-items:flex-end">
+    <div class="fg" style="margin:0"><label class="flbl">First sprint #</label><input class="fi" id="spNum" type="number" value="32"></div>
+    <div class="fg" style="margin:0"><label class="flbl">First sprint starts</label><input class="fi" id="spStart" type="date" value="2026-10-04"></div>
+    <div class="fg" style="margin:0"><label class="flbl">How many</label><input class="fi" id="spCnt" type="number" value="8"></div>
+    <button class="btn btn-p btn-s" onclick="genSprintsUI()">Generate</button></div>
+  <div style="font-size:10px;color:var(--txt3);margin:6px 0 10px">Generated sprints run 12 days (Sun → Thu of week 2) and repeat every 14 days. You can still edit any sprint below.</div>
+  <div id="spList" style="max-height:300px;overflow-y:auto"></div>
+  <div class="m-act" style="justify-content:space-between"><button class="btn btn-g btn-s" onclick="addSprintRow()">+ Add sprint</button><button class="btn btn-p btn-s" onclick="closeOv('ovSprint')">Done</button></div>
+</div></div>
+
+<!-- ══ MODAL: BULK ASSIGN ══ -->
+<div class="ov" id="ovBulk">
+  <div class="md">
+    <div class="md-hdr">
+      <div><div class="md-ttl">Bulk Assign</div><div class="md-sub" id="mBulkSub"></div></div>
+      <button class="md-x" onclick="closeOv('ovBulk')">×</button>
+    </div>
+    <div class="fg">
+      <label class="flbl">Task Type</label>
+      <div class="tgrid" id="bulkGrid"></div>
+    </div>
+    <div class="frow" style="margin-top:8px">
+      <div class="fg"><label class="flbl">Label (optional)</label><input class="fi" id="bLabel" placeholder="e.g. Sprint 8"></div>
+      <div class="fg" style="max-width:90px"><label class="flbl">% of day</label><input type="number" class="fi" id="bPct" min="5" max="100" step="5" value="100"></div>
+      <div class="fg"><label class="flbl">Start time</label><input type="time" class="fi" id="bTStart"></div>
+      <div class="fg"><label class="flbl">End time</label><input type="time" class="fi" id="bTEnd"></div>
+    </div>
+    <div class="m-act" style="justify-content:space-between">
+      <button class="btn btn-d btn-s" onclick="bulkClear()">Clear Selected</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-g btn-s" onclick="closeOv('ovBulk')">Cancel</button>
+        <button class="btn btn-p btn-s" onclick="saveBulk()">Assign All</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: LEAVE ══ -->
+<div class="ov" id="ovLeave">
+  <div class="md md-sm">
+    <div class="md-hdr"><div class="md-ttl">Add Leave / Holiday</div><button class="md-x" onclick="closeOv('ovLeave')">×</button></div>
+    <div class="frow">
+      <div class="fg"><label class="flbl">Resource</label><select class="fi" id="lRes"><option value="__all__">All (Public Holiday)</option></select></div>
+      <div class="fg"><label class="flbl">Type</label><select class="fi" id="lType" onchange="if(this.value.startsWith('Public'))document.getElementById('lRes').value='__all__'"><option>Annual Leave</option><option>Public Holiday (Pak)</option><option>Public Holiday (UAE)</option><option>Sick Leave</option><option>Other</option></select></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="flbl">Start</label><input class="fi" type="date" id="lStart" onchange="const e=document.getElementById('lEnd');if(!e.value||e.value<this.value)e.value=this.value"></div>
+      <div class="fg"><label class="flbl">End</label><input class="fi" type="date" id="lEnd"></div>
+    </div>
+    <div class="m-act">
+      <button class="btn btn-g btn-s" onclick="closeOv('ovLeave')">Cancel</button>
+      <button class="btn btn-p btn-s" onclick="saveLeave()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+const PRESETS = ['#00d4aa','#4a9eff','#9b6bff','#f5a623','#e05252','#4caf7d','#ff7850','#ff5cb4','#00c3ff','#ffd700','#a8edea','#c084fc'];
+
+let G = {
+  teams:[],resources:[],
+  allocs:{},   // key "rid|date" => [{id,type,label,ts,te,done}]
+  leaves:[],
+  tasks:[],    // [{id,key,label,abbr,color}]
+  zoom:'day',
+  sel:new Set(),
+  lastSel:null,
+  editTeam:null,
+  editRes:null,
+  editCell:null,   // {rid,date}
+  cellSelKey:null,
+  bulkSelKey:null,
+  teamColor:PRESETS[0],
+};
+
+const uid=()=>Math.random().toString(36).slice(2,8);
+
+// ═══════════════════════════════════════════════════════
+//  SEED DATA
+// ═══════════════════════════════════════════════════════
+function seed(){
+  G.tasks=[
+    {id:'tt1', key:'KIB',       label:'KIB',          abbr:'KIB',   color:'#4a9eff'},
+    {id:'tt2', key:'Credit',    label:'Credit',        abbr:'CRED',  color:'#9b6bff'},
+    {id:'tt3', key:'Blacklist', label:'Blacklist',     abbr:'BLST',  color:'#e05252'},
+    {id:'tt4', key:'Reports',   label:'Reports',       abbr:'REP',   color:'#f5a623'},
+    {id:'tt5', key:'TC',        label:'Test Case',     abbr:'TC',    color:'#00d4aa'},
+    {id:'tt6', key:'Review',    label:'Review',        abbr:'REV',   color:'#4caf7d'},
+    {id:'tt7', key:'FT',        label:'Full Test',     abbr:'FT',    color:'#ff7850'},
+    {id:'tt8', key:'SoftPOS',   label:'Soft POS',      abbr:'SPOS',  color:'#c084fc'},
+    {id:'tt9', key:'OTP',       label:'OTP',           abbr:'OTP',   color:'#ffd700'},
+    {id:'tt10',key:'Notif',     label:'Notification',  abbr:'NOTF',  color:'#00c3ff'},
+    {id:'tt11',key:'BillPay',   label:'Bill Pay',      abbr:'BILL',  color:'#00d4aa'},
+    {id:'tt12',key:'Sprint',    label:'Sprint',        abbr:'SPR',   color:'#9b6bff'},
+    {id:'tt13',key:'UAT',       label:'UAT',           abbr:'UAT',   color:'#ffb432'},
+    {id:'tt14',key:'Retest',    label:'Retest',        abbr:'RTEST', color:'#e05252'},
+    {id:'tt15',key:'Leave',     label:'Leave',         abbr:'LVE',   color:'#525d72'},
+    {id:'tt16',key:'Available', label:'Available',     abbr:'AVAIL', color:'#4caf7d'},
+    {id:'tt17',key:'Pay',       label:'Pay',           abbr:'PAY',   color:'#4caf7d'},
+  ];
+  G.teams=[
+    {id:'t1',name:'KE',       color:'#00d4aa'},
+    {id:'t2',name:'KIB & KJ', color:'#4a9eff'},
+    {id:'t3',name:'Mfloos',   color:'#9b6bff'},
+  ];
+  G.resources=[
+    {id:'r1',name:'Noriaz',   team:'t1',role:'QA'},
+    {id:'r2',name:'Muqaddas', team:'t1',role:'QA'},
+    {id:'r3',name:'Ameena',   team:'t1',role:'QA'},
+    {id:'r4',name:'Rejish',   team:'t2',role:'QA'},
+    {id:'r5',name:'Akshay',   team:'t2',role:'QA'},
+    {id:'r6',name:'Zainab',   team:'t2',role:'QA'},
+    {id:'r7',name:'Adeel',    team:'t2',role:'QA'},
+    {id:'r8',name:'Unnimaya', team:'t3',role:'QA'},
+    {id:'r9',name:'Anila',    team:'t3',role:'QA'},
+  ];
+  G.allocs={};
+  G.leaves=[
+    {id:'l1',rid:'__all__',type:'Annual Leave',start:'2025-06-16',end:'2025-06-17'},
+    {id:'l2',rid:'__all__',type:'Pak-Holiday', start:'2025-06-24',end:'2025-06-25'},
+  ];
+}
+
+// ═══════════════════════════════════════════════════════
+//  DATE HELPERS
+// ═══════════════════════════════════════════════════════
+function ymd(dt){return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')}
+function pd(s){return new Date(s+'T00:00:00')}
+function dateRange(from,to){
+  const out=[];let c=pd(from),e=pd(to);
+  while(c<=e){out.push(ymd(c));c.setDate(c.getDate()+1)}
+  return out;
+}
+// Friday=5, Saturday=6 are weekend
+function isWknd(d){const n=pd(d).getDay();return G.weekend==='ss'?(n===6||n===0):(n===5||n===6)}
+function isToday(d){return d===ymd(new Date())}
+function fmtD(d){return pd(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}
+// Day letter: Fr Sa Su Mo Tu We Th
+function dayLtr(d){return['Su','Mo','Tu','We','Th','Fr','Sa'][pd(d).getDay()]}
+
+// Guard: to cannot be before from
+function genSprints(n,start,cnt){const out=[];for(let i=0;i<cnt;i++){const a=pd(start);a.setDate(a.getDate()+14*i);const b=new Date(a);b.setDate(a.getDate()+11);out.push({id:uid(),name:'Sprint '+(n+i),start:ymd(a),end:ymd(b)})}return out}
+function sprintsChanged(){renderGantt();if(fbInited)scheduleSave()}
+function openSprints(){renderSprintList();openOv('ovSprint')}
+function renderSprintList(){document.getElementById('spList').innerHTML=[...(G.sprints||[])].sort((a,b)=>a.start<b.start?-1:1).map(x=>`<div class="frow" style="margin-bottom:5px;align-items:center"><input class="fi" value="${x.name}" onchange="updSprint('${x.id}','name',this.value)"><input type="date" class="fi" value="${x.start}" onchange="updSprint('${x.id}','start',this.value)"><input type="date" class="fi" value="${x.end}" onchange="updSprint('${x.id}','end',this.value)"><button class="dt-x" onclick="delSprint('${x.id}')">×</button></div>`).join('')||'<div style="font-size:11px;color:var(--txt3)">No sprints yet</div>'}
+function updSprint(id,f,v){const x=(G.sprints||[]).find(q=>q.id===id);if(x&&v){x[f]=v;sprintsChanged()}}
+function delSprint(id){G.sprints=G.sprints.filter(q=>q.id!==id);renderSprintList();sprintsChanged()}
+function addSprintRow(){G.sprints=G.sprints||[];const L=[...G.sprints].sort((a,b)=>a.start<b.start?-1:1).pop();
+  const n=L?(parseInt(L.name.replace(/\D/g,''))||0)+1:1,st=L?ymd(new Date(pd(L.start).getTime()+14*864e5)):ymd(new Date());
+  G.sprints.push(...genSprints(n,st,1));renderSprintList();sprintsChanged()}
+function genSprintsUI(){const n=+document.getElementById('spNum').value,st=document.getElementById('spStart').value,c=Math.min(+document.getElementById('spCnt').value||0,40);
+  if(!st||!n||c<1)return;if((G.sprints||[]).length&&!confirm('Replace the existing sprints?'))return;
+  G.sprints=genSprints(n,st,c);renderSprintList();sprintsChanged()}
+function guardDates(changed){
+  const f=document.getElementById('dFrom').value;
+  const t=document.getElementById('dTo').value;
+  if(!f||!t) return;
+  if(t<f){
+    if(changed==='to') document.getElementById('dTo').value=f;
+    else document.getElementById('dFrom').value=t;
+  }
+  renderGantt();
+}
+
+// ═══════════════════════════════════════════════════════
+//  TASK HELPERS
+// ═══════════════════════════════════════════════════════
+function applyTheme(t){document.documentElement.dataset.theme=t;const b=document.getElementById('themeBtn');if(b)b.textContent=t==='light'?'🌙 Dark':'☀ Light'}
+function toggleTheme(){const t=document.documentElement.dataset.theme==='light'?'dark':'light';try{localStorage.setItem('ra-theme',t)}catch(_){}applyTheme(t)}
+try{applyTheme(localStorage.getItem('ra-theme')||'dark')}catch(_){}
+function lvName(t){return t==='Pak-Holiday'?'Public Holiday (Pak)':t}
+function stCls(t){return t==='Available'?' av':t==='Leave'?' lv':''}
+function getTask(key){
+  return G.tasks.find(t=>t.key===key)||{key:'?',label:key,abbr:(key||'?').slice(0,4),color:'#00d4aa'};
+}
+function chipCSS(color){
+  const r=parseInt(color.slice(1,3),16),gv=parseInt(color.slice(3,5),16),b=parseInt(color.slice(5,7),16);
+  return `background:rgba(${r},${gv},${b},.16);color:${color};border:1px solid rgba(${r},${gv},${b},.32)`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  SIDEBAR RENDER
+// ═══════════════════════════════════════════════════════
+function renderSidebar(){
+  // teams
+  document.getElementById('teamList').innerHTML=G.teams.map(t=>`
+    <div class="t-item">
+      <div class="t-item-l">
+        <div class="t-dot" style="background:${t.color}"></div>
+        <span style="font-size:11px;font-weight:500">${t.name}</span>
+        <span style="font-size:10px;color:var(--txt3)">${G.resources.filter(r=>r.team===t.id).length}</span>
+      </div>
+      <div class="t-acts">
+        <button class="iBtn" onclick="openEditTeam('${t.id}')" title="Edit">${ico('edit')}</button>
+        <button class="iBtn" onclick="delTeam('${t.id}')" title="Delete">${ico('trash')}</button>
+      </div>
+    </div>`).join('');
+
+  // resources
+  document.getElementById('resList').innerHTML=G.resources.map(r=>{
+    const t=G.teams.find(x=>x.id===r.team);
+    return`<div class="r-item">
+      <div class="r-l">
+        <div class="av" style="background:${t?t.color:'#525d72'}">${r.name.slice(0,2).toUpperCase()}</div>
+        <div><div style="font-size:11px;font-weight:500">${r.name}</div><div style="font-size:9px;color:var(--txt3)">${t?t.name:'—'}${r.role?' · '+r.role:''}</div></div>
+      </div>
+      <div class="r-acts">
+        <button class="iBtn" onclick="openEditRes('${r.id}')">${ico('edit')}</button>
+        <button class="iBtn" onclick="delRes('${r.id}')">${ico('trash')}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // filter dropdown
+  const sel=document.getElementById('ftTeam'),cur=sel.value;
+  sel.innerHTML='<option value="">All</option>'+G.teams.map(t=>`<option value="${t.id}"${t.id===cur?' selected':''}>${t.name}</option>`).join('');
+}
+
+function ico(n){
+  if(n==='edit')return`<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>`;
+  if(n==='trash')return`<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
+  return '';
+}
+
+// ═══════════════════════════════════════════════════════
+//  GANTT RENDER
+// ═══════════════════════════════════════════════════════
+function availManage(rid){const f=document.getElementById('avFrom').value,t=document.getElementById('avTo').value;
+  openCellModal(rid,f);document.getElementById('cUntil').value=t>f?t:''}
+function renderAvail(){
+  const fi=document.getElementById('avFrom'),ti=document.getElementById('avTo');if(!fi)return;
+  if(!fi.value)fi.value=ymd(new Date());
+  if(!ti.value||ti.value<fi.value)ti.value=fi.value;
+  const from=fi.value,to=ti.value,days=dateRange(from,to),ts=document.getElementById('avTeam'),tf=ts.value;
+  ts.innerHTML='<option value="">All teams</option>'+G.teams.map(t=>`<option value="${t.id}"${t.id===tf?' selected':''}>${t.name}</option>`).join('');
+  const cnt={};
+  const rows=G.teams.filter(t=>!tf||t.id===tf).map(t=>{
+    const rs=G.resources.filter(r=>r.team===t.id);if(!rs.length)return'';
+    return`<tr><td colspan="6" style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${t.color}">${t.name}</td></tr>`+rs.map(r=>{
+      let wd=0,lv=0,free=0,book=0,over=false,sum=0,strip='';const pr={};
+      days.forEach(d=>{
+        const tasks=G.allocs[`${r.id}|${d}`]||[],L=dayLoad(tasks),off=!!getLeave(r.id,d)||tasks.some(x=>x.type==='Leave');let col;
+        tasks.filter(isWork).forEach(x=>{const n=getTask(x.type).label||x.type;pr[n]=(pr[n]||0)+(x.pct==null?100:+x.pct)/100});
+        if(isWknd(d))col=L?'#e05252':'#8a96ad';
+        else{wd++;
+          if(off){lv++;col='#ff5cb4'}
+          else if(!L){free++;col='#4caf7d'}
+          else{book++;sum+=L;if(L>100){over=true;col='#e05252'}else col=L<100?'#f5a623':'#4a9eff'}}
+        strip+=`<i title="${fmtD(d)}" style="display:inline-block;width:7px;height:14px;border-radius:2px;background:${col}"></i>`});
+      const avg=(wd-lv)?Math.round(sum/(wd-lv)):0;let st,col;
+      if(!wd){st='Weekend';col='#8a96ad'}else if(lv===wd){st='On leave';col='#ff5cb4'}
+      else if(!book){st='Available';col='#4caf7d'}else if(over){st='Overbooked';col='#e05252'}
+      else if(book===wd-lv&&avg>=100){st='Fully booked';col='#4a9eff'}else{st='Partly booked ('+avg+'%)';col='#f5a623'}
+      const k=st.split(' (')[0];cnt[k]=(cnt[k]||0)+1;
+      const proj=Object.entries(pr).map(([n,v])=>`${n} – ${Math.round(v*10)/10}d`).join(', ')||'<span style="color:var(--txt3)">No projects</span>';
+      return`<tr><td>${r.name}</td><td><span class="lbg" style="background:${col}33;color:${col}">${st}</span></td>
+        <td style="font-size:11px;white-space:nowrap">${free} free · ${book} booked · ${lv} leave</td><td style="font-size:11px">${proj}</td>
+        <td>${days.length<=45?`<span style="display:inline-flex;gap:1px">${strip}</span>`:''}</td>
+        <td style="text-align:right"><button class="btn btn-g btn-s" onclick="availManage('${r.id}')">Manage tasks</button></td></tr>`}).join('')}).join('');
+  const sm=Object.entries(cnt).map(([k,c])=>`<b>${c}</b> ${k}`).join(' &nbsp;·&nbsp; ');
+  document.getElementById('avBody').innerHTML=`<div style="font-size:12px;color:var(--txt2);margin-bottom:6px">${fmtD(from)} → ${fmtD(to)} · ${days.filter(d=>!isWknd(d)).length} working days — ${sm}</div>
+    <div style="font-size:10px;color:var(--txt3);margin-bottom:10px">Strip: one box per day — <span style="color:#4caf7d">free</span>, <span style="color:#f5a623">partly booked</span>, <span style="color:#4a9eff">fully booked</span>, <span style="color:#e05252">over / weekend work</span>, <span style="color:#ff5cb4">leave</span>, <span style="color:#8a96ad">weekend</span>. Manage tasks opens the first date with your To date filled in.</div>
+    <table class="ltbl"><thead><tr><th>Resource</th><th>Status</th><th>Days</th><th>Projects in this period</th><th>Day by day</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function setWeekend(v){G.weekend=v;renderGantt();if(document.getElementById('pn-stats').classList.contains('act'))renderStats();if(fbInited)scheduleSave()}
+function renderGantt(){
+  const wsl=document.getElementById('wkSel');if(wsl)wsl.value=G.weekend||'fs';
+  const hs=document.getElementById('hSub');if(hs)hs.textContent='PM Dashboard · Weekend: '+(G.weekend==='ss'?'Sat & Sun':'Fri & Sat');
+  if(document.getElementById('pn-avail').classList.contains('act'))renderAvail();
+  const from=document.getElementById('dFrom').value;
+  const to=document.getElementById('dTo').value;
+  if(!from||!to||to<from)return;
+
+  const teamF=document.getElementById('ftTeam').value;
+  const allDates=dateRange(from,to);
+  const resources=teamF?G.resources.filter(r=>r.team===teamF):G.resources;
+  const teamOrder=teamF?G.teams.filter(t=>t.id===teamF):G.teams;
+
+  // Cell width
+  const CW=G.zoom==='week'?110:44;
+
+  // Display units
+  const units=G.zoom==='week'?buildWeeks(allDates):allDates.map(d=>({dates:[d]}));
+
+  // Month groups (based on all dates)
+  const mGroups=[];let cm=null;
+  allDates.forEach(d=>{
+    const m=pd(d).toLocaleDateString('en-US',{month:'short',year:'2-digit'});
+    if(!cm||cm.label!==m){cm={label:m,cnt:0};mGroups.push(cm)}
+    cm.cnt++;
+  });
+
+  let html='';
+  const spOf=d=>(G.sprints||[]).find(x=>d>=x.start&&d<=x.end);
+  const spG=[];units.forEach(u=>{const sp=spOf(u.dates[0])||spOf(u.dates[u.dates.length-1]);const id=sp?sp.id:'';const l=spG[spG.length-1];if(l&&l.id===id)l.n++;else spG.push({id,sp,n:1})});
+  const t0=ymd(new Date());
+  const spRow=`<div class="gh-sp"><div class="gh-rc" style="text-transform:none">Sprints <a onclick="openSprints()" style="color:var(--teal);cursor:pointer;margin-left:6px">edit</a></div><div class="gh-sps">${spG.map((g,i)=>{const sp=g.sp;
+    return sp?`<div class="sp ${(parseInt(sp.name.replace(/\D/g,''))||i)%2?'b':'a'}${t0>=sp.start&&t0<=sp.end?' cur':''}" style="width:${g.n*CW}px" title="${sp.name}: ${fmtD(sp.start)} → ${fmtD(sp.end)}">${sp.name} <small>${fmtD(sp.start)}–${fmtD(sp.end)}</small></div>`:`<div class="sp" style="width:${g.n*CW}px"></div>`}).join('')}</div></div>`;
+
+  // ── HEADER ──
+  html+=`<div class="gh">${spRow}
+    <div class="gh-m">
+      <div class="gh-rc" style="display:flex;align-items:center">
+        <input type="text" placeholder="🔍 Filter resources…" style="width:100%;background:transparent;border:none;color:var(--txt);font-size:11px;outline:none" oninput="filterRes(this.value)">
+      </div>
+      <div class="gh-months">`;
+  if(G.zoom==='day'){
+    mGroups.forEach(mg=>{
+      html+=`<div class="gh-mo" style="width:${mg.cnt*CW}px">${mg.label}</div>`;
+    });
+  } else {
+    // week view: one cell per week
+    units.forEach(u=>{
+      const m=pd(u.dates[0]).toLocaleDateString('en-US',{month:'short',year:'2-digit'});
+      html+=`<div class="gh-mo" style="width:${CW}px">${m}</div>`;
+    });
+  }
+  html+=`</div></div>
+    <div class="gh-dates">
+      <div class="gh-rc"></div>`;
+  units.forEach(u=>{
+    if(G.zoom==='day'){
+      const d=u.dates[0];
+      const wk=isWknd(d),td=isToday(d);
+      html+=`<div class="gh-d${wk?' wk':''}${td?' td':''}" style="width:${CW}px">
+        <div class="gh-d-n">${pd(d).getDate()}</div>
+        <div class="gh-d-l">${dayLtr(d)}</div>
+      </div>`;
+    } else {
+      const d=u.dates[0],hasToday=u.dates.some(isToday);
+      html+=`<div class="gh-d${hasToday?' td':''}" style="width:${CW}px;font-size:9px;color:var(--txt2);padding:4px 0;text-align:center">
+        <div style="font-size:9px">Wk</div>
+        <div style="font-size:9px">${fmtD(d)}</div>
+      </div>`;
+    }
+  });
+  html+=`</div></div>`;
+
+  // ── BODY ──
+  teamOrder.forEach(team=>{
+    const tRes=resources.filter(r=>r.team===team.id);
+    if(!tRes.length)return;
+    html+=`<div class="g-thdr" style="color:${team.color}">
+      <div style="width:7px;height:7px;border-radius:50%;background:${team.color};flex-shrink:0"></div>
+      ${team.name}&nbsp;<span style="color:var(--txt3);font-weight:400;font-size:9px">${tRes.length} people</span>
+    </div>`;
+    tRes.forEach(res=>{
+      html+=`<div class="g-row" data-rid="${res.id}">
+        <div class="g-lbl">
+          <div class="av" style="background:${team.color};width:24px;height:24px;font-size:9px">${res.name.slice(0,2).toUpperCase()}</div>
+          <div><div style="font-size:11px;font-weight:500">${res.name}</div><div style="font-size:9px;color:var(--txt3)">${res.role||''}</div></div>
+        </div>
+        <div class="g-cells">`;
+      units.forEach(u=>{
+        if(G.zoom==='day'){
+          html+=renderDayCell(res,u.dates[0],CW);
+        } else {
+          html+=renderWeekCell(res,u.dates,CW);
+        }
+      });
+      html+=`</div></div>`;
+    });
+  });
+
+  document.getElementById('gc').innerHTML=html;
+}
+
+function buildWeeks(dates){
+  const weeks=[];let i=0;
+  while(i<dates.length){
+    const grp=[];
+    for(let j=0;j<7&&i<dates.length;j++,i++)grp.push(dates[i]);
+    weeks.push({dates:grp});
+  }
+  return weeks;
+}
+
+function renderDayCell(res,d,CW){
+  const wk=isWknd(d),td=isToday(d);
+  const key=`${res.id}|${d}`;
+  const tasks=G.allocs[key]||[];
+  const leave=getLeave(res.id,d);
+  const isSel=G.sel.has(key);
+  const hasWork=tasks.length>0;
+  const wkWork=wk&&hasWork;
+  const L=dayLoad(tasks);
+
+  let inside='';
+  if(!hasWork&&leave){
+    const tt=getTask('Leave');
+    inside=`<div class="chip${leave.rid==='__all__'?'':' lv'}" style="${chipCSS(tt.color)};width:${CW-6}px">${leave.rid==='__all__'?(/Pak/.test(leave.type)?'PAK':/UAE/.test(leave.type)?'UAE':'HOL'):'LEAVE'}</div>`;
+  } else if(tasks.length===1){
+    const t=tasks[0],tt=getTask(t.type);
+    const pc=t.pct==null?100:+t.pct;const disp=pc<100?(t.label||tt.abbr).slice(0,3)+' '+pc:(t.label||tt.abbr).slice(0,5);
+    const time=t.ts?`<div style="font-size:7px;color:${tt.color};opacity:.75;pointer-events:none">${t.ts}${t.te?'→'+t.te:''}</div>`:'';
+    inside=`<div class="chip${t.done?' done':''}${stCls(t.type)}" style="${chipCSS(tt.color)};width:${CW-6}px">${disp}</div>${time}`;
+  } else if(tasks.length===2){
+    const w=Math.floor((CW-9)/2);
+    inside=tasks.map(t=>{const tt=getTask(t.type);return`<div class="chip${t.done?' done':''}${stCls(t.type)}" style="${chipCSS(tt.color)};width:${w}px;font-size:7px">${(t.label||tt.abbr).slice(0,(t.pct==null||t.pct>=100)?3:2)}${(t.pct!=null&&t.pct<100)?t.pct:''}</div>`;}).join('');
+  } else if(tasks.length>2){
+    const w=Math.floor((CW-9)/2);
+    const t0=tasks[0],tt0=getTask(t0.type);
+    inside=`<div class="chip${t0.done?' done':''}${stCls(t0.type)}" style="${chipCSS(tt0.color)};width:${w}px;font-size:7px">${(t0.label||tt0.abbr).slice(0,3)}</div>`
+          +`<div class="chip" style="background:var(--surf3);color:var(--txt2);border:1px solid var(--bdr);width:${w}px;font-size:7px">+${tasks.length-1}</div>`;
+  }
+
+  const lvTip=leave?encodeURIComponent((leave.rid==='__all__'?'':'On leave: ')+lvName(leave.type))+(tasks.length?'|':''):'';
+  const tipTasks=lvTip+tasks.map(t=>{const tt=getTask(t.type);return(t.done?'✓ ':'')+encodeURIComponent((t.label||tt.abbr)+((t.pct!=null&&t.pct<100)?' '+t.pct+'%':'')+(t.ts?' ('+t.ts+(t.te?'-'+t.te:'')+')':''));}).join('|')+(L?'|'+encodeURIComponent('Day load: '+L+'%'):'');
+
+  return`<div class="g-cell${wk?' wk':''}${td?' td':''}${isSel?' sel':''}${wkWork?' wkwork':''}"
+    style="width:${CW}px"
+    data-rid="${res.id}" data-date="${d}"
+    onclick="onCellClick(event,'${res.id}','${d}')"
+    onmousedown="dragStart('${res.id}','${d}')" onmouseup="dragEnd('${res.id}','${d}')"
+    onmouseenter="showTip(event,'${res.name}','${d}','${tipTasks}')"
+    onmouseleave="hideTip()">
+    ${inside}
+    ${L?`<div class="ld" style="width:${Math.min(L,100)}%;background:${L>100?'#e05252':L===100?'#4a9eff':'#f5a623'}"></div>`:''}
+    ${wkWork?`<div class="wkw-badge">WK</div>`:''}
+    ${leave&&hasWork&&leave.rid!=='__all__'?`<div class="lv-badge">LV</div>`:''}
+  </div>`;
+}
+
+function renderWeekCell(res,weekDates,CW){
+  const allTasks=[];
+  weekDates.forEach(d=>{(G.allocs[`${res.id}|${d}`]||[]).forEach(t=>allTasks.push({...t,date:d}))});
+  const leave=weekDates.some(d=>getLeave(res.id,d));
+  const isSel=weekDates.some(d=>G.sel.has(`${res.id}|${d}`));
+
+  let inside='';
+  if(!allTasks.length&&leave){
+    inside=`<div class="wk-chip lv" style="${chipCSS('#525d72')}">Leave</div>`;
+  } else {
+    const byType={};
+    allTasks.forEach(t=>{byType[t.type]=(byType[t.type]||0)+1});
+    inside=Object.entries(byType).slice(0,4).map(([k,c])=>{
+      const tt=getTask(k);
+      return`<div class="wk-chip${stCls(k)}" style="${chipCSS(tt.color)}">${tt.abbr}${c>1?` ×${c}`:''}</div>`;
+    }).join('');
+  }
+
+  return`<div class="g-cell${isSel?' sel':''}" style="width:${CW}px;flex-wrap:wrap;gap:2px;padding:3px;flex-direction:row;align-items:flex-start;align-content:flex-start"
+    data-dates="${weekDates.join(' ')}"
+    onclick="openCellModal('${res.id}','${weekDates[0]}')"
+  >${inside||'<div style="font-size:9px;color:var(--txt3)">—</div>'}</div>`;
+}
+
+function getLeave(rid,date){
+  if(isWknd(date))return undefined;   // leave & holidays skip Fri/Sat
+  return G.leaves.find(l=>(l.rid===rid||l.rid==='__all__')&&date>=l.start&&date<=l.end);
+}
+
+// ═══════════════════════════════════════════════════════
+//  CELL SELECTION
+// ═══════════════════════════════════════════════════════
+let dragS=null;
+function dragStart(r,d){dragS={r,d}}
+function dragEnd(r,d){if(!dragS||dragS.r!==r||dragS.d===d){dragS=null;return}
+  const a=dragS.d<d?dragS.d:d,b=dragS.d<d?d:dragS.d;dragS=null;
+  dateRange(a,b).filter(x=>!isWknd(x)).forEach(x=>G.sel.add(`${r}|${x}`));
+  updateSelBar();renderGantt();openBulk()}
+function onCellClick(e,rid,date){
+  if(e.ctrlKey||e.metaKey){
+    // toggle
+    const k=`${rid}|${date}`;
+    G.sel.has(k)?G.sel.delete(k):G.sel.add(k);
+    G.lastSel={rid,date};
+    updateSelBar();renderGantt();
+  } else if(e.shiftKey&&G.lastSel){
+    // range select
+    const cells=[...document.querySelectorAll('.g-cell[data-rid][data-date]')];
+    const ai=cells.findIndex(c=>c.dataset.rid===G.lastSel.rid&&c.dataset.date===G.lastSel.date);
+    const bi=cells.findIndex(c=>c.dataset.rid===rid&&c.dataset.date===date);
+    if(ai>=0&&bi>=0){
+      const lo=Math.min(ai,bi),hi=Math.max(ai,bi);
+      cells.slice(lo,hi+1).forEach(c=>G.sel.add(`${c.dataset.rid}|${c.dataset.date}`));
+    }
+    updateSelBar();renderGantt();
+  } else if(G.sel.size>0){
+    // in selection mode: toggle this cell
+    const k=`${rid}|${date}`;
+    G.sel.has(k)?G.sel.delete(k):G.sel.add(k);
+    G.lastSel={rid,date};
+    updateSelBar();renderGantt();
+  } else {
+    // normal open
+    openCellModal(rid,date);
+  }
+}
+
+function updateSelBar(){
+  const n=G.sel.size;
+  const bar=document.getElementById('selBar');
+  const btn=document.getElementById('clrSelBtn');
+  bar.classList.toggle('on',n>0);
+  btn.style.display=n>0?'inline-flex':'none';
+  document.getElementById('selCnt').textContent=`${n} cell${n!==1?'s':''} selected`;
+}
+
+function clearSel(){G.sel.clear();updateSelBar();renderGantt()}
+
+function filterRes(q){
+  document.querySelectorAll('.g-row[data-rid]').forEach(row=>{
+    const r=G.resources.find(x=>x.id===row.dataset.rid);
+    row.style.display=r&&r.name.toLowerCase().includes(q.toLowerCase())?'':'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  BULK ASSIGN
+// ═══════════════════════════════════════════════════════
+function openBulk(){
+  G.bulkSelKey=null;
+  document.getElementById('mBulkSub').textContent=`Assigning to ${G.sel.size} cells`;
+  document.getElementById('bLabel').value='';document.getElementById('bPct').value=100;
+  document.getElementById('bTStart').value='';
+  document.getElementById('bTEnd').value='';
+  document.getElementById('bulkGrid').innerHTML=buildTaskGrid('bulk');
+  openOv('ovBulk');
+}
+
+function saveBulk(){
+  if(!G.bulkSelKey){alert('Please select a task type first.');return}
+  const label=document.getElementById('bLabel').value.trim();
+  const ts=document.getElementById('bTStart').value;
+  const te=document.getElementById('bTEnd').value;
+  G.sel.forEach(k=>{
+    if(G.bulkSelKey==='Leave'&&isWknd(k.split('|')[1]))return;
+    if(!G.allocs[k])G.allocs[k]=[];
+    G.allocs[k].push({id:uid(),type:G.bulkSelKey,label:label||G.bulkSelKey,ts,te,pct:Math.max(1,Math.min(100,+document.getElementById('bPct').value||100)),done:false});
+  });
+  G.sel.clear();closeOv('ovBulk');updateSelBar();renderGantt();
+}
+
+function bulkClear(){
+  G.sel.forEach(k=>{G.allocs[k]=[]});
+  G.sel.clear();closeOv('ovBulk');updateSelBar();renderGantt();
+}
+
+// ═══════════════════════════════════════════════════════
+//  CELL MODAL
+// ═══════════════════════════════════════════════════════
+function openCellModal(rid,date){
+  G.editCell={rid,date};G.cellSelKey=null;
+  const res=G.resources.find(r=>r.id===rid);
+  document.getElementById('mCellTtl').textContent=res.name;
+  document.getElementById('mCellSub').textContent=fmtD(date)+(isWknd(date)?' · Weekend — work allowed on demand':'');
+  document.getElementById('cLabel').value='';
+  document.getElementById('cTStart').value='';
+  document.getElementById('cTEnd').value='';
+  document.getElementById('cUntil').value='';
+  document.getElementById('cFrom').value=date;
+  renderDayList();
+  document.getElementById('cellGrid').innerHTML=buildTaskGrid('cell');
+  openOv('ovCell');
+}
+
+function cFromChg(){const v=document.getElementById('cFrom').value;if(!v)return;G.editCell.date=v;document.getElementById('mCellSub').textContent=fmtD(v);renderDayList()}
+function renderDayList(){
+  const {rid,date}=G.editCell;
+  const tasks=G.allocs[`${rid}|${date}`]||[];
+  const L=dayLoad(tasks);const pe=document.getElementById('cPct');if(pe)pe.value=tasks.length&&L<100?100-L:100;
+  const el=document.getElementById('dayList');
+  if(!tasks.length){
+    el.innerHTML=`<div style="text-align:center;color:var(--txt3);font-size:11px;padding:10px 0">No tasks — add one below</div>`;
+    return;
+  }
+  el.innerHTML=`<div style="font-size:11px;margin-bottom:6px;color:${L>100?'#e05252':'var(--txt2)'}">Day total: <b>${L}%</b> ${L>100?'· overloaded':L<100?'· '+(100-L)+'% free':'· fully loaded'}</div>`+tasks.map(t=>{
+    const tt=getTask(t.type);
+    const time=t.ts?(t.te?`${t.ts} → ${t.te}`:t.ts):'Full day';
+    return`<div class="dt-row${t.done?' dn':''}">
+      <input type="checkbox" class="dt-chk" ${t.done?'checked':''} onchange="toggleDone('${t.id}')">
+      <div class="dt-chip" style="${chipCSS(tt.color)}">${tt.abbr}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:500${t.done?';text-decoration:line-through;opacity:.5':''}">${t.label||tt.label}</div>
+        <div style="font-size:9px;color:var(--txt3)">${t.pct==null?100:t.pct}% · ${time}</div>
+      </div>
+      <button class="dt-x" onclick="removeTask('${t.id}')">×</button>
+    </div>`;
+  }).join('');
+}
+
+function toggleDone(id){
+  Object.values(G.allocs).forEach(arr=>{const t=arr.find(x=>x.id===id);if(t)t.done=!t.done});
+  renderDayList();renderGantt();
+}
+
+function removeTask(id){
+  const {rid,date}=G.editCell;
+  const k=`${rid}|${date}`;
+  G.allocs[k]=(G.allocs[k]||[]).filter(t=>t.id!==id);
+  renderDayList();renderGantt();
+}
+
+function addToDay(){
+  if(!G.cellSelKey){alert('Select a task type first.');return}
+  const rid=G.editCell.rid,date=document.getElementById('cFrom').value||G.editCell.date;
+  const until=document.getElementById('cUntil').value;
+  const inclWk=document.getElementById('cInclWk').checked,skipLv=document.getElementById('cSkipLv').checked;
+  if(until&&until<date){alert('"Repeat until" must be on or after the start date.');return}
+  const label=document.getElementById('cLabel').value.trim();
+  const ts=document.getElementById('cTStart').value,te=document.getElementById('cTEnd').value;
+  const pct=Math.max(1,Math.min(100,+document.getElementById('cPct').value||100));
+  const days=until?dateRange(date,until).filter(d=>d===date||(((inclWk&&G.cellSelKey!=='Leave')||!isWknd(d))&&!(skipLv&&getLeave(rid,d)))):[date];
+  days.forEach(d=>{const k=`${rid}|${d}`;if(!G.allocs[k])G.allocs[k]=[];
+    G.allocs[k].push({id:uid(),type:G.cellSelKey,label:label||G.cellSelKey,ts,te,pct,done:false})});
+  ['cLabel','cTStart','cTEnd','cUntil'].forEach(x=>document.getElementById(x).value='');
+  G.cellSelKey=null;
+  document.querySelectorAll('#cellGrid .topt').forEach(e=>e.classList.remove('sel'));
+  renderDayList();renderGantt();
+}
+
+function clearDay(){
+  const {rid,date}=G.editCell;
+  G.allocs[`${rid}|${date}`]=[];
+  renderDayList();renderGantt();
+}
+
+// ═══════════════════════════════════════════════════════
+//  TASK GRID (shared renderer)
+// ═══════════════════════════════════════════════════════
+function buildTaskGrid(ctx){
+  return G.tasks.map(tt=>`
+    <div class="topt" style="${chipCSS(tt.color)}" onclick="pickTask('${tt.key}','${ctx}',this)">
+      <div>${tt.abbr}</div>
+      <div style="font-size:8px;opacity:.75;margin-top:2px;font-weight:400">${tt.label}</div>
+    </div>`).join('');
+}
+
+function pickTask(key,ctx,el){
+  if(ctx==='cell'){
+    G.cellSelKey=key;
+    document.querySelectorAll('#cellGrid .topt').forEach(e=>e.classList.remove('sel'));
+  } else {
+    G.bulkSelKey=key;
+    document.querySelectorAll('#bulkGrid .topt').forEach(e=>e.classList.remove('sel'));
+  }
+  el.classList.add('sel');
+}
+
+// ═══════════════════════════════════════════════════════
+//  TASK MANAGER
+// ═══════════════════════════════════════════════════════
+function openTaskMgr(){
+  document.getElementById('ntLabel').value='';
+  document.getElementById('ntAbbr').value='';
+  document.getElementById('ntColor').value='#00d4aa';
+  document.getElementById('ntHex').value='#00d4aa';
+  renderTaskMgr();
+  openOv('ovTaskMgr');
+}
+
+function ntHexSync(){
+  const v=document.getElementById('ntHex').value.trim();
+  if(/^#[0-9a-fA-F]{6}$/.test(v))document.getElementById('ntColor').value=v;
+}
+
+function addTaskType(){
+  const label=document.getElementById('ntLabel').value.trim();
+  const abbr=(document.getElementById('ntAbbr').value.trim()||label.slice(0,5)).toUpperCase();
+  const color=document.getElementById('ntColor').value;
+  if(!label){alert('Enter a task label.');return}
+  const key=label.replace(/\s+/g,'');
+  G.tasks.push({id:uid(),key,label,abbr,color});
+  document.getElementById('ntLabel').value='';
+  document.getElementById('ntAbbr').value='';
+  renderTaskMgr();
+  // refresh grids if open
+  const cg=document.getElementById('cellGrid');if(cg.innerHTML)cg.innerHTML=buildTaskGrid('cell');
+  const bg=document.getElementById('bulkGrid');if(bg.innerHTML)bg.innerHTML=buildTaskGrid('bulk');
+}
+
+function renderTaskMgr(){
+  document.getElementById('taskMgrList').innerHTML=G.tasks.map(tt=>`
+    <div class="tl-row">
+      <div class="tl-preview" style="${chipCSS(tt.color)}">${tt.abbr}</div>
+      <div style="flex:1;min-width:0">
+        <input value="${tt.label}" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--txt);font-size:12px;font-weight:500;font-family:'Inter',sans-serif;width:100%;outline:none"
+          onfocus="this.style.borderBottomColor='var(--teal)'"
+          onblur="this.style.borderBottomColor='transparent';updTaskLabel('${tt.id}',this.value)">
+        <div style="font-size:9px;color:var(--txt3)">Abbr:&nbsp;
+          <input value="${tt.abbr}" maxlength="5" style="background:transparent;border:none;color:var(--txt2);font-size:9px;font-family:'JetBrains Mono',monospace;width:44px;outline:none"
+            onblur="updTaskAbbr('${tt.id}',this.value)">
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <input type="color" value="${tt.color}" style="width:28px;height:22px;padding:1px;cursor:pointer;border:1px solid var(--bdr);border-radius:3px;background:var(--surf2)" onchange="updTaskColor('${tt.id}',this.value,this.nextElementSibling)">
+        <input type="text" value="${tt.color}" style="width:72px;font:10px 'JetBrains Mono',monospace;background:var(--surf2);border:1px solid var(--bdr);color:var(--txt);padding:3px 5px;border-radius:4px;outline:none"
+          onblur="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){updTaskColor('${tt.id}',this.value,this.previousElementSibling);this.previousElementSibling.value=this.value}">
+        <button class="btn btn-d btn-xs" onclick="delTaskType('${tt.id}')">Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+function updTaskLabel(id,v){const t=G.tasks.find(x=>x.id===id);if(t){t.label=v;renderTaskMgr();renderGantt()}}
+function updTaskAbbr(id,v){const t=G.tasks.find(x=>x.id===id);if(t){t.abbr=v.toUpperCase();renderTaskMgr();renderGantt()}}
+function updTaskColor(id,v,sibling){
+  const t=G.tasks.find(x=>x.id===id);
+  if(t){t.color=v;if(sibling)sibling.value=v;renderTaskMgr();renderGantt()}
+}
+function delTaskType(id){
+  if(!confirm('Delete this task type?'))return;
+  G.tasks=G.tasks.filter(t=>t.id!==id);
+  renderTaskMgr();renderGantt();
+}
+
+// ═══════════════════════════════════════════════════════
+//  TEAM MODAL
+// ═══════════════════════════════════════════════════════
+function openAddTeam(){
+  G.editTeam=null;G.teamColor=PRESETS[0];
+  document.getElementById('mTeamTtl').textContent='New Team';
+  document.getElementById('mTeamName').value='';
+  setTeamColor(G.teamColor);
+  openOv('ovTeam');
+}
+function openEditTeam(id){
+  const t=G.teams.find(x=>x.id===id);
+  G.editTeam=id;G.teamColor=t.color;
+  document.getElementById('mTeamTtl').textContent='Edit Team';
+  document.getElementById('mTeamName').value=t.name;
+  setTeamColor(t.color);
+  openOv('ovTeam');
+}
+function setTeamColor(c){
+  G.teamColor=c;
+  document.getElementById('tcPicker').value=c;
+  document.getElementById('tcHex').value=c;
+  document.getElementById('teamSwatches').innerHTML=PRESETS.map(p=>
+    `<div class="sw${p===c?' sel':''}" style="background:${p}" onclick="setTeamColor('${p}')"></div>`
+  ).join('');
+}
+function tcPickerChange(){setTeamColor(document.getElementById('tcPicker').value)}
+function tcHexChange(){const v=document.getElementById('tcHex').value.trim();if(/^#[0-9a-fA-F]{6}$/.test(v))setTeamColor(v)}
+function saveTeam(){
+  const name=document.getElementById('mTeamName').value.trim();
+  if(!name){alert('Enter a team name.');return}
+  if(G.editTeam){const t=G.teams.find(x=>x.id===G.editTeam);t.name=name;t.color=G.teamColor}
+  else G.teams.push({id:uid(),name,color:G.teamColor});
+  closeOv('ovTeam');renderSidebar();renderGantt();
+}
+function delTeam(id){
+  if(!confirm('Delete team? Resources will be unassigned.'))return;
+  G.teams=G.teams.filter(t=>t.id!==id);
+  G.resources.forEach(r=>{if(r.team===id)r.team=''});
+  renderSidebar();renderGantt();
+}
+
+// ═══════════════════════════════════════════════════════
+//  RESOURCE MODAL
+// ═══════════════════════════════════════════════════════
+function openAddRes(){
+  G.editRes=null;
+  document.getElementById('mResTtl').textContent='New Resource';
+  document.getElementById('mResName').value='';
+  document.getElementById('mResRole').value='';
+  popResTeam('');openOv('ovRes');
+}
+function openEditRes(id){
+  const r=G.resources.find(x=>x.id===id);G.editRes=id;
+  document.getElementById('mResTtl').textContent='Edit Resource';
+  document.getElementById('mResName').value=r.name;
+  document.getElementById('mResRole').value=r.role||'';
+  popResTeam(r.team);openOv('ovRes');
+}
+function popResTeam(sel){
+  document.getElementById('mResTeam').innerHTML=G.teams.map(t=>
+    `<option value="${t.id}"${t.id===sel?' selected':''}>${t.name}</option>`).join('');
+}
+function saveRes(){
+  const name=document.getElementById('mResName').value.trim();
+  const team=document.getElementById('mResTeam').value;
+  const role=document.getElementById('mResRole').value.trim();
+  if(!name){alert('Enter a name.');return}
+  if(G.editRes){const r=G.resources.find(x=>x.id===G.editRes);r.name=name;r.team=team;r.role=role}
+  else G.resources.push({id:uid(),name,team,role});
+  closeOv('ovRes');renderSidebar();renderGantt();
+}
+function delRes(id){
+  if(!confirm('Remove this resource?'))return;
+  G.resources=G.resources.filter(r=>r.id!==id);
+  renderSidebar();renderGantt();
+}
+
+// ═══════════════════════════════════════════════════════
+//  LEAVE
+// ═══════════════════════════════════════════════════════
+function openLeave(){
+  document.getElementById('lRes').innerHTML=
+    '<option value="__all__">All (Public Holiday)</option>'+
+    G.resources.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  openOv('ovLeave');
+}
+function saveLeave(){
+  const rid=document.getElementById('lRes').value;
+  const type=document.getElementById('lType').value;
+  const start=document.getElementById('lStart').value;
+  const end=document.getElementById('lEnd').value;
+  if(!start||!end){alert('Select dates.');return}
+  if(end<start){alert('End must be on or after start.');return}
+  G.leaves.push({id:uid(),rid,type,start,end});
+  closeOv('ovLeave');renderLeave();renderGantt();
+}
+function delLeave(id){G.leaves=G.leaves.filter(l=>l.id!==id);renderLeave();renderGantt()}
+function renderLeave(){
+  const cls={'Annual Leave':'lb-a','Pak-Holiday':'lb-p','Public Holiday (Pak)':'lb-p','Public Holiday (UAE)':'lb-o','Sick Leave':'lb-s','Other':'lb-o'};
+  document.getElementById('leaveBody').innerHTML=G.leaves.length
+    ?G.leaves.map(l=>{
+        const rn=l.rid==='__all__'?'All':(G.resources.find(r=>r.id===l.rid)||{name:'—'}).name;
+        const team=l.rid==='__all__'?'—':(()=>{const r=G.resources.find(r=>r.id===l.rid);return r?(G.teams.find(t=>t.id===r.team)||{name:'—'}).name:'—'})();
+        const days=dateRange(l.start,l.end).filter(d=>!isWknd(d)).length;
+        return`<tr><td>${rn}</td><td>${team}</td><td><span class="lbg ${cls[l.type]||'lb-o'}">${lvName(l.type)}</span></td><td>${fmtD(l.start)}</td><td>${fmtD(l.end)}</td><td>${days}d</td>
+          <td><button class="iBtn" onclick="delLeave('${l.id}')">${ico('trash')}</button></td></tr>`;
+      }).join('')
+    :`<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:20px">No entries yet</td></tr>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOOLTIP
+// ═══════════════════════════════════════════════════════
+function showTip(e,name,date,tasksEnc){
+  if(!tasksEnc)return;
+  const parts=tasksEnc.split('|').filter(Boolean).map(p=>decodeURIComponent(p));
+  if(!parts.length)return;
+  document.getElementById('tipN').textContent=name;
+  document.getElementById('tipT').innerHTML=parts.map(p=>`<div>${p}</div>`).join('');
+  document.getElementById('tipD').textContent=fmtD(date)+(isWknd(date)?' · Weekend':'');
+  document.getElementById('tip').classList.add('on');
+  moveTip(e);
+}
+function hideTip(){document.getElementById('tip').classList.remove('on')}
+function moveTip(e){const t=document.getElementById('tip');t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-10)+'px'}
+document.addEventListener('mousemove',e=>{if(document.getElementById('tip').classList.contains('on'))moveTip(e)});
+
+// ═══════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════
+function setZoom(z,btn){
+  G.zoom=z;
+  document.querySelectorAll('.ztb').forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+  renderGantt();
+}
+
+let rangeInit=false;
+function defaultRange(){const t=new Date(),a=new Date(t),b=new Date(t);a.setDate(t.getDate()-7);b.setDate(t.getDate()+28);
+  document.getElementById('dFrom').value=ymd(a);document.getElementById('dTo').value=ymd(b)}
+function initRange(){if(rangeInit)return;rangeInit=true;defaultRange()}
+function scrollToDate(d){
+  const el=document.querySelector(`.g-cell[data-date="${d}"],.g-cell[data-dates~="${d}"]`)||document.querySelector('.gh-d.td');
+  if(el)el.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+}
+function jumpToday(){
+  const today=ymd(new Date());
+  const from=document.getElementById('dFrom').value,to=document.getElementById('dTo').value;
+  if(!from||!to||today<from||today>to)defaultRange();
+  renderGantt();setTimeout(()=>scrollToDate(today),120);
+}
+function gotoDate(){
+  const d=document.getElementById('dGoto').value;
+  if(!d)return;
+  const from=document.getElementById('dFrom').value,to=document.getElementById('dTo').value;
+  if(!from||!to||d<from||d>to){
+    const a=pd(d),b=pd(d);a.setDate(a.getDate()-7);b.setDate(b.getDate()+28);
+    document.getElementById('dFrom').value=ymd(a);document.getElementById('dTo').value=ymd(b);
+  }
+  renderGantt();setTimeout(()=>scrollToDate(d),120);
+}
+
+function filterByTeam(id){
+  document.getElementById('ftTeam').value=id;
+  renderGantt();showTab('gantt');
+}
+
+// ═══════════════════════════════════════════════════════
+//  STATS
+// ═══════════════════════════════════════════════════════
+const isWork=t=>t.type!=='Available'&&t.type!=='Leave';
+const dayLoad=a=>(a||[]).filter(isWork).reduce((x,t)=>x+(t.pct==null?100:+t.pct),0);
+function renderStats(){
+  const from=document.getElementById('dFrom').value;
+  const to=document.getElementById('dTo').value;
+  if(!from||!to)return;
+  const dates=dateRange(from,to).filter(d=>!isWknd(d));
+  const total=G.resources.length*dates.length;
+  const allocCount=Math.round(Object.entries(G.allocs).filter(([k,v])=>{
+    const[,d]=k.split('|');return d>=from&&d<=to&&!isWknd(d)&&v.some(isWork);
+  }).reduce((a,[,v])=>a+Math.min(dayLoad(v),100)/100,0)*10)/10;
+  const util=total?Math.round(allocCount/total*100):0;
+
+  const tc={};let taskTot=0;
+  Object.entries(G.allocs).forEach(([k,tasks])=>{
+    const[,d]=k.split('|');
+    if(d<from||d>to||isWknd(d))return;
+    tasks.forEach(t=>{tc[t.type]=(tc[t.type]||0)+1;taskTot++});
+  });
+  const top=Object.entries(tc).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="sc" style="grid-column:span 2">
+      <div class="sc-l">Utilization</div>
+      <div class="sc-v" style="color:var(--teal)">${util}%</div>
+      <div class="sc-s">${allocCount} of ${total} resource-days</div>
+      <div class="bar-t"><div class="bar-s" style="width:${util}%;background:var(--teal)"></div></div>
+    </div>
+    <div class="sc"><div class="sc-l">Resources</div><div class="sc-v" style="color:var(--blue)">${G.resources.length}</div><div class="sc-s">${G.teams.length} teams</div></div>
+    <div class="sc"><div class="sc-l">Working Days</div><div class="sc-v" style="color:var(--purple)">${dates.length}</div><div class="sc-s">${fmtD(from)} → ${fmtD(to)}</div></div>
+    <div class="sc" style="grid-column:span 2">
+      <div class="sc-l">Task Mix</div>
+      <div class="bar-t">${top.map(([k,c])=>{const tt=getTask(k);return`<div class="bar-s" style="width:${taskTot?Math.round(c/taskTot*100):0}%;background:${tt.color}"></div>`}).join('')}</div>
+      <div class="leg">${top.map(([k,c])=>{const tt=getTask(k);return`<div class="leg-i"><div class="leg-d" style="background:${tt.color}"></div>${tt.label} <span style="color:var(--txt3)">(${c})</span></div>`}).join('')}</div>
+    </div>
+    ${G.teams.map(team=>{
+      const res=G.resources.filter(r=>r.team===team.id);
+      const ta=Object.entries(G.allocs).filter(([k,v])=>{const[ri,d]=k.split('|');return res.some(r=>r.id===ri)&&d>=from&&d<=to&&!isWknd(d)&&v.some(isWork)}).reduce((a,[,v])=>a+Math.min(dayLoad(v),100)/100,0);
+      const ts=res.length*dates.length;
+      const tu=ts?Math.round(ta/ts*100):0;
+      return`<div class="sc"><div class="sc-l" style="color:${team.color}">${team.name}</div><div class="sc-v" style="color:${team.color}">${tu}%</div><div class="sc-s">${res.length} people · ${Math.round(ta*10)/10}/${ts} days</div><div class="bar-t"><div class="bar-s" style="width:${tu}%;background:${team.color}"></div></div></div>`;
+    }).join('')}`;
+
+  renderWeeklyChart();
+
+}
+
+// ═══════════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════════
+const WC_ST={avail:['Available','#4caf7d'],part:['Partially loaded','#f5a623'],full:['Fully loaded','#4a9eff'],ovl:['Overloaded','#e05252'],leave:['On leave','#ff5cb4']};
+function personWeek(rid,dates){
+  let workable=0,work=0,sum=0,over=false;
+  dates.forEach(d=>{
+    const all=G.allocs[`${rid}|${d}`]||[],L=dayLoad(all),off=!!getLeave(rid,d)||all.some(t=>t.type==='Leave');
+    if(isWknd(d)){if(L&&!off)over=true;return}
+    workable++;if(off)return;
+    work++;sum+=L;if(L>100)over=true;
+  });
+  if(!workable)return null;
+  if(!work)return{st:'leave',pct:0};
+  const pct=Math.round(sum/work);
+  return{st:over?'ovl':pct===0?'avail':pct<100?'part':'full',pct};
+}
+function weekTip(r,dates,x){
+  const pr={},lv={};
+  dates.forEach(d=>{
+    const all=G.allocs[`${r.id}|${d}`]||[],l=getLeave(r.id,d),off=(!!l||all.some(t=>t.type==='Leave'))&&!isWknd(d);
+    all.filter(isWork).forEach(t=>{const n=getTask(t.type).label||t.type;const o=pr[n]=pr[n]||{d:0,l:0};o.d+=(t.pct==null?100:+t.pct)/100;if(off)o.l++});
+    if(off){const n=l?lvName(l.type):'Leave';lv[n]=(lv[n]||0)+1}
+  });
+  const P=Object.entries(pr).map(([n,o])=>`• ${n} – ${Math.round(o.d*10)/10} day(s)${o.l?` (${o.l} on leave days)`:''}`);
+  const Lv=Object.entries(lv).map(([n,c])=>`• ${n} – ${c} day(s)`);
+  return [`${r.name} · week of ${fmtD(dates[0])}`,'Projects:',...(P.length?P:['No projects']),...(Lv.length?['Leave:',...Lv]:[])].join('&#10;').replace(/"/g,'&quot;');
+}
+function renderWeeklyChart(){
+  const el=document.getElementById('wcSec');if(!el)return;
+  const from=document.getElementById('dFrom').value,to=document.getElementById('dTo').value;if(!from||!to)return;
+  const cur=document.getElementById('wcTeam'),tf=cur?cur.value:'';
+  const teams=G.teams.filter(t=>!tf||t.id===tf);
+  const weeks=[];dateRange(from,to).forEach(d=>{if(pd(d).getDay()===(G.weekend==='ss'?1:0)||!weeks.length)weeks.push([]);weeks[weeks.length-1].push(d)});
+  const today=ymd(new Date()),cw=weeks.find(w=>w.includes(today))||weeks[0];
+  const sum={};
+  const grid=teams.map(t=>{const rs=G.resources.filter(r=>r.team===t.id);if(!rs.length)return'';
+    return`<div class="wht" style="color:${t.color}">${t.name}</div>`+rs.map(r=>`<div class="whr"><div class="whn" title="${r.name}">${r.name}</div>${weeks.map(w=>{const x=personWeek(r.id,w);
+      if(!x)return`<div class="wh" style="background:var(--surf2)"></div>`;
+      if(w===cw)(sum[x.st]=sum[x.st]||[]).push(r.name);
+      return`<div class="wh" title="${weekTip(r,w,x)}" style="background:${WC_ST[x.st][1]}">${x.st==='leave'?'Leave':x.pct+'%'}</div>`}).join('')}</div>`).join('')}).join('');
+  const summary=cw?Object.keys(WC_ST).filter(k=>sum[k]).map(k=>`<span style="color:${WC_ST[k][1]};font-weight:600">${WC_ST[k][0]}:</span> ${sum[k].join(', ')}`).join(' &nbsp;·&nbsp; '):'';
+  el.innerHTML=`<div style="display:flex;align-items:center;margin-bottom:8px">
+    <h3 style="font-size:12px;font-weight:600;color:var(--txt2)">Who is free or busy, week by week</h3>
+    <select id="wcTeam" onchange="renderWeeklyChart()" style="margin-left:auto"><option value="">All teams</option>${G.teams.map(t=>`<option value="${t.id}"${t.id===tf?' selected':''}>${t.name}</option>`).join('')}</select></div>
+    ${summary?`<div style="font-size:11px;color:var(--txt2);line-height:1.7;margin-bottom:8px"><b>Week of ${fmtD(cw[0])}</b> — ${summary}</div>`:''}
+    <div class="leg" style="margin-bottom:8px">${Object.values(WC_ST).map(([l,c])=>`<div class="leg-i"><div class="leg-d" style="background:${c}"></div>${l}</div>`).join('')}</div>
+    <div style="overflow-x:auto;padding-bottom:6px"><div style="display:inline-block"><div class="whr"><div class="whn"></div>${weeks.map(w=>`<div class="wh" style="background:none;color:var(--txt3);font-weight:500">${fmtD(w[0])}</div>`).join('')}</div>${grid}</div></div>
+    <div style="font-size:10px;color:var(--txt3);margin-top:6px">Each box = one person for one week (Sun–Sat). The % is how much of their working days are booked (leave and Fri/Sat excluded). Overloaded = booked over 100% on a day, or working Fri/Sat. Hover a box for details.</div>`;
+}
+
+function doExport(){
+  const from=document.getElementById('dFrom').value;
+  const to=document.getElementById('dTo').value;
+  const dates=dateRange(from,to);
+  const rows=[['Team','Resource','Role',...dates]];
+  G.resources.forEach(r=>{
+    const t=G.teams.find(x=>x.id===r.team);
+    rows.push([t?t.name:'',r.name,r.role||'',...dates.map(d=>{
+      const tasks=G.allocs[`${r.id}|${d}`]||[];
+      return tasks.map(t=>(t.done?'✓ ':'')+t.label+(t.ts?' ('+t.ts+(t.te?'-'+t.te:'')+')':'')+(isWknd(d)?'[WK]':'')).join(' | ');
+    })]);
+  });
+  const csv=rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`allocation-${from}-${to}.csv`;a.click();
+}
+
+// ═══════════════════════════════════════════════════════
+//  MODAL UTILS
+// ═══════════════════════════════════════════════════════
+function openOv(id){document.getElementById(id).classList.add('on')}
+function closeOv(id){document.getElementById(id).classList.remove('on')}
+document.querySelectorAll('.ov').forEach(el=>{
+  el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('on')});
+});
+
+// ═══════════════════════════════════════════════════════
+//  TAB SWITCH
+// ═══════════════════════════════════════════════════════
+document.addEventListener('click',e=>{const t=e.target;if(t&&t.type==='date'&&t.showPicker){try{t.showPicker()}catch(_){}}});
+function showTab(name){
+  ['gantt','stats','leave','avail'].forEach(n=>{
+    document.getElementById(`tb-${n}`).classList.toggle('act',n===name);
+    document.getElementById(`pn-${n}`).classList.toggle('act',n===name);
+  });
+  if(name==='stats')renderStats();
+  if(name==='leave')renderLeave();
+  if(name==='avail')renderAvail();
+}
+
+// ═══════════════════════════════════════════════════════
+//  FIREBASE SETUP
+// ═══════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyD9VrnMDFcOH9wX5m3XAuDEjG7T6hKfrt8",
+  authDomain: "qa-allocation-sheet.firebaseapp.com",
+  databaseURL: "https://qa-allocation-sheet-default-rtdb.firebaseio.com",
+  projectId: "qa-allocation-sheet",
+  storageBucket: "qa-allocation-sheet.firebasestorage.app",
+  messagingSenderId: "673677817510",
+  appId: "1:673677817510:web:e2c1f2994cc656c545e667",
+  measurementId: "G-EC833Q6K92"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ── CURRENT USER ──
+const NAMES = ['Ameena','Noriaz','Muqaddas','Rejish','Akshay','Zainab','Adeel','Unnimaya','Anila','Guest'];
+let MY_NAME = '';
+let MY_ID   = 'user_' + Math.random().toString(36).slice(2,8);
+let MY_COLOR= '';
+const USER_COLORS = ['#00d4aa','#4a9eff','#9b6bff','#f5a623','#e05252','#4caf7d','#ff7850','#ff5cb4'];
+
+// ── SYNC STATE ──
+let isSaving   = false;
+let lastSaved  = null;
+let fbInited   = false;
+let suppressFB = false; // prevent re-saving when we receive remote updates
+
+// ── SYNC STATUS UI ──
+function setSyncStatus(state, msg){
+  const dot = document.getElementById('syncDot');
+  const msgEl = document.getElementById('syncMsg');
+  dot.className = 'sync-dot ' + state;
+  msgEl.textContent = msg;
+}
+
+// ── SAVE ALL DATA TO FIREBASE ──
+function fbSave(){
+  if(suppressFB) return;
+  setSyncStatus('saving','Saving…');
+  isSaving = true;
+  const payload = {
+    teams:     G.teams,
+    resources: G.resources,
+    tasks:     G.tasks,
+    leaves:    G.leaves,
+    allocs:    G.allocs,
+    allocsCleared: true,
+    weekend: G.weekend||'fs',
+    sprintsSet: true,
+    sprints: G.sprints||[],
+    lastEdit:  { user: MY_NAME, time: Date.now() }
+  };
+  db.ref('allocation').set(payload)
+    .then(()=>{
+      isSaving  = false;
+      lastSaved = new Date();
+      setSyncStatus('live', `Saved · Last edit by ${MY_NAME} at ${lastSaved.toLocaleTimeString()}`);
+    })
+    .catch(err=>{
+      isSaving = false;
+      setSyncStatus('offline','Save failed — check connection');
+      console.error(err);
+    });
+}
+
+// ── DEBOUNCED SAVE (avoid hammering DB on rapid edits) ──
+let saveTimer = null;
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(fbSave, 800);
+}
+
+// ── LISTEN FOR REMOTE CHANGES ──
+function fbListen(){
+  db.ref('allocation').on('value', snap=>{
+    const data = snap.val();
+    if(!data) {
+      // First time — no data in DB yet, seed and save
+      seed();
+      initRange();G.sprints=genSprints(32,'2026-10-04',8);
+      renderSidebar();
+      renderGantt();
+      fbSave();
+      fbInited = true;
+      return;
+    }
+
+    // Don't overwrite if WE just saved (our own echo)
+    if(isSaving) return;
+
+    suppressFB = true; // prevent re-triggering save when we apply remote data
+    G.teams     = data.teams     || G.teams;
+    G.resources = data.resources || G.resources;
+    G.tasks     = data.tasks     || G.tasks;
+    G.leaves    = data.leaves    || G.leaves;
+    G.allocs    = data.allocs    || {};
+    const migrate = !data.allocsCleared;   // one-time wipe of old allocations
+    if(migrate) G.allocs = {};
+    let renamed=false;G.teams.forEach(t=>{if(t.name==='Mftoos'){t.name='Mfloos';renamed=true}});
+    G.weekend = data.weekend || G.weekend || 'fs';
+    G.sprints = data.sprints || [];
+    const sprintSeed = !data.sprintsSet;
+    if(sprintSeed) G.sprints = genSprints(32,'2026-10-04',8);
+
+    // Restore date range
+    initRange();
+
+    renderSidebar();
+    renderGantt();
+    suppressFB = false;
+    fbInited   = true;
+    if(migrate||renamed||sprintSeed) fbSave();
+
+    // Show who last edited
+    if(data.lastEdit && data.lastEdit.user !== MY_NAME){
+      const t = new Date(data.lastEdit.time).toLocaleTimeString();
+      setSyncStatus('live', `Live · Last edit by ${data.lastEdit.user} at ${t}`);
+    } else {
+      setSyncStatus('live','Live · All changes synced');
+    }
+  }, err=>{
+    setSyncStatus('offline','Connection lost — working offline');
+    console.error(err);
+  });
+}
+
+// ── PRESENCE (who is online) ──
+function fbPresence(){
+  const presRef  = db.ref(`presence/${MY_ID}`);
+  const colorIdx = Math.floor(Math.random() * USER_COLORS.length);
+  MY_COLOR       = USER_COLORS[colorIdx];
+
+  presRef.set({ name: MY_NAME, color: MY_COLOR, online: true });
+  presRef.onDisconnect().remove();
+
+  db.ref('presence').on('value', snap=>{
+    const users = snap.val() || {};
+    const el    = document.getElementById('onlineUsers');
+    el.innerHTML = Object.entries(users)
+      .filter(([id]) => id !== MY_ID)
+      .map(([,u]) =>
+        `<div class="ou-av" style="background:${u.color}" title="${u.name}">${u.name.slice(0,2).toUpperCase()}</div>`
+      ).join('');
+  });
+}
+
+// ── PATCH SAVE INTO ALL MUTATING FUNCTIONS ──
+['saveTeam','delTeam','saveRes','delRes','addToDay','clearDay','toggleDone','removeTask','saveBulk','bulkClear',
+ 'saveLeave','delLeave','addTaskType','updTaskLabel','updTaskAbbr','updTaskColor','delTaskType'].forEach(n=>{
+  const orig=window[n];
+  window[n]=function(...a){const r=orig.apply(this,a);if(fbInited)scheduleSave();return r};
+});
+
+// ═══════════════════════════════════════════════════════
+//  INIT — Ask for name, then connect
+// ═══════════════════════════════════════════════════════
+function askName(){
+  // Simple name picker overlay
+  const ov = document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)';
+  ov.innerHTML=`
+    <div style="background:#13161f;border:1px solid #252a3a;border-radius:14px;padding:32px;width:380px;text-align:center">
+      <div style="width:44px;height:44px;background:var(--teal);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+        <svg width="22" height="22" fill="#0d0f17" viewBox="0 0 24 24"><path d="M3 4h18v3H3V4zm0 6.5h12v3H3v-3zM3 17h15v3H3v-3z"/></svg>
+      </div>
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:6px;color:#dde1eb">Resource Allocation</h2>
+      <p style="font-size:12px;color:#7a8496;margin-bottom:24px">Who are you? This helps the team see who's making changes.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        ${NAMES.map(n=>`<button onclick="chooseName('${n}',this)" style="padding:9px;border-radius:8px;border:1px solid #252a3a;background:#191d2a;color:#dde1eb;cursor:pointer;font:500 12px Inter;transition:all .12s" onmouseover="this.style.borderColor='#00d4aa';this.style.color='#00d4aa'" onmouseout="this.style.borderColor='#252a3a';this.style.color='#dde1eb'">${n}</button>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px">
+        <input id="customName" placeholder="Or type your name…" style="flex:1;background:#191d2a;border:1px solid #252a3a;color:#dde1eb;padding:8px 10px;border-radius:8px;font:13px Inter;outline:none">
+        <button onclick="chooseCustomName()" style="padding:8px 14px;border-radius:8px;border:none;background:#00d4aa;color:#0d0f17;font:600 12px Inter;cursor:pointer">Go</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  window._nameOv = ov;
+}
+
+function chooseName(name, btn){
+  MY_NAME = name;
+  document.getElementById('myUserName').textContent = name;
+  window._nameOv.remove();
+  startApp();
+}
+
+function chooseCustomName(){
+  const v = document.getElementById('customName').value.trim();
+  if(!v){ alert('Please enter your name.'); return; }
+  chooseName(v, null);
+}
+
+function startApp(){
+  setSyncStatus('loading','Connecting…');
+  fbPresence();
+  fbListen(); // loads data from DB (or seeds if first time)
+}
+
+function mkSB(id,vert){
+  const bar=document.getElementById(id),gw=document.getElementById('gw');
+  bar.innerHTML=`<button class="sbb" data-d="-1">${vert?'▲':'◀'}</button><div class="sbt"><div class="sbh"></div></div><button class="sbb" data-d="1">${vert?'▼':'▶'}</button>`;
+  const track=bar.querySelector('.sbt'),th=bar.querySelector('.sbh');
+  const key=vert?'scrollTop':'scrollLeft',size=vert?'clientHeight':'clientWidth',tot=vert?'scrollHeight':'scrollWidth',pos=vert?'top':'left';
+  const TL=()=>vert?track.clientHeight:track.clientWidth,HL=()=>vert?th.offsetHeight:th.offsetWidth;
+  function upd(){const T=TL(),L=Math.max(36,T*Math.min(1,gw[size]/gw[tot])),m=gw[tot]-gw[size];
+    th.style[vert?'height':'width']=L+'px';th.style[pos]=(m>0?gw[key]/m*(T-L):0)+'px';th.style.opacity=m>1?1:.35}
+  gw.addEventListener('scroll',upd);
+  bar.querySelectorAll('.sbb').forEach(b=>b.onclick=()=>gw.scrollBy({[pos]:b.dataset.d*180}));
+  track.onclick=e=>{if(e.target!==track)return;const r=th.getBoundingClientRect(),bef=vert?e.clientY<r.top:e.clientX<r.left;gw.scrollBy({[pos]:(bef?-1:1)*gw[size]*.8})};
+  th.onmousedown=e=>{e.preventDefault();const s0=vert?e.clientY:e.clientX,p0=gw[key],m=gw[tot]-gw[size],k=m/Math.max(1,TL()-HL());
+    const mv=ev=>{gw[key]=p0+((vert?ev.clientY:ev.clientX)-s0)*k},up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up)};
+    document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up)};
+  return upd;
+}
+(function(){const u=[mkSB('hsb',false),mkSB('vsb',true)],f=()=>u.forEach(x=>x()),gw=document.getElementById('gw');
+  new MutationObserver(f).observe(document.getElementById('gc'),{childList:true});new ResizeObserver(f).observe(gw);f()})();
+
+// Boot
+askName();
+</script>
+</body>
+</html>
